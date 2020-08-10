@@ -1,0 +1,4 @@
+Change system to query database once not once plus per server.
+put permissions in constants
+
+add players to db?

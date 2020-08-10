@@ -1,0 +1,35 @@
+{
+  "name": "bedrock-server-manager",
+  "version": "1.0.0",
+  "description": "A server mananger for minecraft bedrock edition using sockets",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js",
+    "dev": "ts-node-dev --respawn --transpileOnly ./index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodeMicah/bedrock-server-manager.git"
+  },
+  "keywords": [
+    "Minecraft",
+    "bedrock",
+    "socket"
+  ],
+  "author": "Micah Henney",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CodeMicah/bedrock-server-manager/issues"
+  },
+  "homepage": "https://github.com/CodeMicah/bedrock-server-manager#readme",
+  "dependencies": {
+    "@types/node": "^14.0.14",
+    "@types/socket.io": "^2.1.8",
+    "dotenv": "^8.2.0",
+    "mysql": "^2.18.1",
+    "pg": "^8.2.2",
+    "socket.io": "^2.3.0",
+    "ts-node-dev": "^1.0.0-pre.49",
+    "typescript": "^3.9.5"
+  }
+}
