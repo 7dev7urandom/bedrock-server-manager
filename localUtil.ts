@@ -1,14 +1,15 @@
 import { BProperties } from "./classes/BProperties";
-import { BPermissions } from "./classes/BPermissions";
+import BPermission from "./classes/BPermissions";
 import { parse } from 'dotenv';
 import { readFile } from 'fs';
 import { promisify } from 'util';
+import Player from "./classes/Player";
 
 const readFileAsync = promisify(readFile);
 
 export async function propertiesFileToBProperties(filePath): Promise<BProperties> {
     //@ts-ignore
-    return parse(await readFileAsync(filePath));
+    return new BProperties(parse(await readFileAsync(filePath)));
 }
 //         ret = {
 //             levelType: data.levelType,
@@ -38,8 +39,12 @@ export async function propertiesFileToBProperties(filePath): Promise<BProperties
 // _$levelSeed: data.levelSeed
 //         }
 
-export async function permissionsFileToBPermissions(filePath): Promise<BPermissions> {
+export async function permissionsFileToBPermissions(filePath): Promise<BPermission[]> {
     let filedata = (await readFileAsync(filePath)).toString();
     let json = JSON.parse(filedata);
-    return json;
+    if(!Array.isArray(json)) json = [];
+    return json.map(e => { return { player: Player.xuidToPlayer.get(e.xuid) || { xuid: e.xuid }, permission: e.permission } });
+    // let set: Set<BPermission> = new Set();
+    // arr.forEach(val => set.add(val));
+    // return set;
 }

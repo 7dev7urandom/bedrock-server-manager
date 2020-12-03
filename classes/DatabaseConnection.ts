@@ -1,6 +1,9 @@
 import { timeStamp } from "console";
 
 const db = require('pg');
+// const DB = ['servers', 'users', 'worlds'];
+
+// Currently using DB for everything. May not be best for performance
 
 export default class DatabaseConnection {
     static numOfQuerys = 0;

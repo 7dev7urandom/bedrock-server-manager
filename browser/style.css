@@ -176,21 +176,34 @@ html {
     cursor: default;
     
 }
-button {
+.innerbutton {
+    width: 100%;
+    height: 100%;
     border-right: #656465 3px solid;
     border-bottom: #656465 3px solid;
     border-top: #f7f7f7 3px solid;
     border-left: #f7f7f7 3px solid;
     font: 400 16px Minecraftia;
-    padding: 15px;
+    padding: 10px;
     color: #505050;
-
+    background-color: #c6c6c6;
+}
+button {
+    /* margin-top: 20px; */
+    border: black solid 3px;
+    padding: 0;
+}
+.buttonrow {
+    /* display: inline-block; */
+    text-align: right;
+    margin-top: 20px;
 }
 .apply {
     position: absolute;
-    right: 0px;
-    bottom: 5px;
+    right: 14px;
+    bottom: 16px;
 }
+.popup-window .
 button:hover {
     border: 3px white solid;
 }
@@ -199,6 +212,31 @@ button:hover {
 }
 * {
     font-weight: normal;
+}
+.popup-window {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    /* width: 100px; */
+    /* height: 50px; */
+    max-width: 80%;
+    max-height: 80%;
+    /* background-color: red; */
+    z-index: 1;
+}
+.popup-window-inner {
+    max-width: 500px;
+    max-height: 250px;
+    padding: 10px;
+    padding-bottom: 65px;
+}
+.popup-window-inner .apply {
+    right: 13px;
+    bottom: 14px;
+}
+.title {
+    margin-block-start: 0;
 }
 .serverdata {
     width: 100%;
@@ -247,7 +285,7 @@ button:hover {
     border-top: #f7f7f7 2px solid;
     border-left: #f7f7f7 2px solid;
     border-bottom: #656465 2px solid;
-    z-index: 1;
+    /* z-index: 1; */
     border-radius: 3px;
 }
 .hidden {
@@ -260,7 +298,7 @@ button:hover {
     border-top: #f7f7f7 2px solid;
     border-left: #f7f7f7 2px solid;
     color: #505050;
-    z-index: 0;
+    /* z-index: 0; */
     max-height: none;
 }
 .tab {
@@ -274,7 +312,7 @@ button:hover {
     border-top-left-radius: 5px;
     border-top-right-radius: 5px;
     display: inline-block;
-    z-index: 2;
+    /* z-index: 2; */
     max-height: 46px;
 }
 
@@ -361,7 +399,7 @@ div[class^=styleset] {
     border-top: #f7f7f7 2px solid;
     border-left: #f7f7f7 2px solid;
     border-bottom: #656465 2px solid;
-    z-index: 1;
+    /* z-index: 1; */
     display: block;
     height: -webkit-fill-available;
 }

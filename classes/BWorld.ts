@@ -1,23 +1,25 @@
-import DatabaseConnection from './DatabaseConnection';
-import { timeStamp } from 'console';
+import { remove } from 'fs-extra';
 export class BWorld {
-    id: number;
     serverId: number;
     name: string;
-    description: string;
     path: string;
+    generated: boolean;
 
-    constructor(id) {
-        this.id = id;
-        DatabaseConnection.query({
-            // rowMode: 'array',
-            text: 'SELECT * FROM worlds WHERE id=$1',
-            values: [this.id]
-        }).then(result => {
-            this.serverId = result[0].serverId;
-            this.name = result[0].name;
-            this.description = result[0].description;
-            this.path = result[0].path;
-        });
+
+    constructor(serverId, name, path, generated = true) {
+        this.serverId = serverId;
+        this.name = name;
+        this.path = path;
+        this.generated = generated;
+    }
+    // Destroys the world in the fs. Doesn't handle everything.
+    async destroy(): Promise<boolean> {
+        try {
+            await remove(this.path);
+        } catch (e) {
+            console.error("Error removing world " + this.name + " in server id " + this.serverId + ". Error: " + e.message);
+            return false;
+        }
+        return true;
     }
 }

@@ -9,15 +9,19 @@ export interface SocketListener {
     (socket: Socket, data: any): void;
 }
 export interface UserData {
-    socket: Socket;
+    id: number;
+    perm: string;
+    socket?: Socket;
     username: string;
     globalPermissions: number;
+    selectedServer: number | null;
 }
 export class GlobalPermissions extends ServerPermissions {
     static readonly CAN_CREATE_SERVER =     0b00000001;
     static readonly CAN_DELETE_SERVER =     0b00000010;
     static readonly CAN_GRANT_PERMISSIONS = 0b00000100;
     static readonly CAN_OVERRIDE_LOCAL =    0b00001000;
+    static readonly CAN_REFRESH_DB =        0b00010000;
 
     // static readonly CAN_X =   0b00010000;
 }
@@ -38,7 +42,7 @@ export class Server {
                 case '/':
                     url = '/index.html'
                 default:
-                    readFile(__dirname + '/browser' + unescape(url), (err, data) => {
+                    readFile(`${__dirname}/browser${unescape(url)}`, (err, data) => {
                         if(err) {
                             res.writeHead(404);
                             res.end(JSON.stringify(err));

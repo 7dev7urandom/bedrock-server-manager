@@ -1,4 +1,8 @@
 {
-    "include": ["classes"],
-    "exclude": ["node_modules"]
+    "include": ["classes/*.ts", "*.ts"],
+    "exclude": ["node_modules"],
+    "compilerOptions": {
+        "target": "ES5",
+        "watch": true
+    }
 }
