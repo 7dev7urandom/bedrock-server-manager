@@ -4,6 +4,7 @@ import { parse } from 'dotenv';
 import { readFile } from 'fs';
 import { promisify } from 'util';
 import Player from "./classes/Player";
+import { pathExists } from "fs-extra";
 
 const readFileAsync = promisify(readFile);
 
@@ -40,10 +41,20 @@ export async function propertiesFileToBProperties(filePath): Promise<BProperties
 //         }
 
 export async function permissionsFileToBPermissions(filePath): Promise<BPermission[]> {
-    let filedata = (await readFileAsync(filePath)).toString();
+    let filedata;
+    try {
+        filedata = (await readFileAsync(filePath)).toString();
+    } catch (e) {
+        return [];
+    }
     let json = JSON.parse(filedata);
     if(!Array.isArray(json)) json = [];
-    return json.map(e => { return { player: Player.xuidToPlayer.get(e.xuid) || { xuid: e.xuid }, permission: e.permission } });
+    return json.map(e => { 
+        return { 
+            player: Player.xuidToPlayer.get(e.xuid) || { xuid: e.xuid },
+            permission: e.permission 
+        }
+    });
     // let set: Set<BPermission> = new Set();
     // arr.forEach(val => set.add(val));
     // return set;

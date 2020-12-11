@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tsc index && node index.js",
-    "dev": "tsc -w & nodemon"
+    "dev": "tsc -w & node tests/exec.js"
   },
   "repository": {
     "type": "git",
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "concurrently": "^5.3.0",
+    "node-watch": "^0.7.0",
     "nodemon": "^2.0.6",
     "ts-node-dev": "^1.0.0"
   }

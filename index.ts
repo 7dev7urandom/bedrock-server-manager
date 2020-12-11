@@ -1,7 +1,7 @@
 import { ServerPermissions, NO_PERMISSION_ERROR } from './Constants';
 import { BServer, LocalPermissions, MinimalBServer } from './classes/BServer'
 import { readFileSync } from 'fs';
-import { copy, pathExists } from 'fs-extra';
+import { copy, truncate } from 'fs-extra';
 import { GlobalPermissions, Server } from './Server';
 import DatabaseConnection from './classes/DatabaseConnection';
 import path = require('path');
@@ -23,13 +23,13 @@ rl.on('line', (line) => {
     } else if (line === "19132 started") {
         console.log((BServer.is19132PortStarted));
         console.log(BServer.controls19132?.properties["server-name"])
+    } else if (line === "stop") {
+        pKill();
     }
 })
 // import packetDef from 'packetDef.d.ts'
 
-// FIXME: servers -> map?
-
-var servers: BServer[] = [];
+var servers: Map<number, BServer> = new Map();
 
 // var players: Player[] = [];
 
@@ -50,7 +50,7 @@ Promise.all([serverQuery, playerQuery]).then(results => {
         const propertiesPromise = propertiesFileToBProperties(path.join(server.path, "server.properties"));
         const permissionsPromise = permissionsFileToBPermissions(path.join(server.path, "permissions.json"));
         Promise.all([propertiesPromise, permissionsPromise]).then(([properties, permissions]) => {
-            servers.push(new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, server.allowedusers));
+            servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, server.allowedusers));
         });
     });
     results[1].rows.forEach(p => new Player(p.username, p.xuid));
@@ -63,6 +63,7 @@ DatabaseConnection.query({
     text: "SELECT * FROM users",
 }).then(result => {
     result.rows.forEach(user => {
+        // console.log(JSON.stringify(user));
         Server.dataFromId.set(user.id, {
             // socket: socket,
             username: user.username,
@@ -126,7 +127,7 @@ function addListeners() {
                 userdata.selectedServer = results[0].id;
                 Server.dataFromId.set(Server.idFromSocket.get(socket), userdata);
                 socket.emit("serverList", results);
-                servers.find(s => s.id == results[0].id).sendAll(socket);
+                servers.get(results[0].id).sendAll(socket);
             })
         }
         catch (err) {
@@ -140,17 +141,19 @@ function addListeners() {
         }
     });
     Server.addListener("changeProperty", async (socket, { properties, serverId, description }) => {
-        const server = servers.find(s => s.id === serverId);
+        const server = servers.get(serverId);
         if(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_EDIT_PROPERTIES) {
+            server.autostart = properties.autostart;
+            properties.autostart = undefined;
             server.properties = new BProperties(properties);
             server.properties.commit(path.join(server.path, 'server.properties'));
             if(description) {
                 server.description = description;
             }
             if(server.status === 'Running') {
-                server.clobberWorld({ properties: server.properties, description: description });
+                server.clobberWorld({ properties: server.propertiesFull, description: description });
             } else {
-                server.clobberWorld({ properties: server.properties, currentWorld: properties['level-name'], description: description });
+                server.clobberWorld({ properties: server.propertiesFull, currentWorld: properties['level-name'], description: description });
             }
         }
     });
@@ -159,7 +162,7 @@ function addListeners() {
         // return;
         let userId = Server.idFromSocket.get(socket);
         let user;
-        let server = servers.find(s => s.id === sId);
+        let server = servers.get(sId);
         // console.log(`setPermission. data: { userId: ${id}, perm: ${perm}, serverId: ${sId} } sender: id ${userId}`);
         if(!server) {
             // const packet: permissionSetError = {
@@ -239,7 +242,7 @@ function addListeners() {
         const userId = Server.idFromSocket.get(socket);
         const user = Server.dataFromId.get(userId);
         const sId = user.selectedServer;
-        const server = servers.find(s => s.id === sId);
+        const server = servers.get(sId);
         if(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_USE_CONSOLE) {
             server.sendData(data.command); 
         } else {
@@ -250,7 +253,7 @@ function addListeners() {
     Server.addListener("serverLoad", (socket, data: serverLoad) => {
         // Check that the user has permissions
         const userId = Server.idFromSocket.get(socket);
-        const server = servers.find(s => s.id === data.serverId);
+        const server = servers.get(data.serverId);
         if(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_VIEW) {
             let userData = Server.dataFromId.get(userId);
             userData.selectedServer = data.serverId;
@@ -262,7 +265,7 @@ function addListeners() {
         }
     });
     Server.addListener("changeStatus", (socket, data: changeStatus) => {
-        const server = servers.find(s => s.id === data.serverId);
+        const server = servers.get(data.serverId);
         const userId = Server.idFromSocket.get(socket);
 
         if(!(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_SET_STATUS)) return;
@@ -272,20 +275,20 @@ function addListeners() {
     });
     Server.addListener("createWorld", (socket, data: createWorld) => {
         const userId = Server.idFromSocket.get(socket);
-        const server = servers.find(s => s.id === data.serverId);
+        const server = servers.get(data.serverId);
         const perm = server.getUserPermissionLevel(userId);
         if(perm && perm & LocalPermissions.CAN_CREATE_WORLDS) {
             server.createWorld(data);
         }
     });
     Server.addListener("setOpVal", (socket, data: setOpVal) => {
-        console.log(data);
+        // console.log(data);
         const user = Server.idFromSocket.get(socket);
-        const server = servers.find( s => s.id === data.serverId);
+        const server = servers.get(data.serverId);
         if(!(server.getUserPermissionLevel(user) & LocalPermissions.CAN_EDIT_PROPERTIES)) return;
         
         // server.permissions = data.permissions;
-        let permission = server.permissions.get(data.permissions.player.xuid);
+        let permission = server.specPermissions.get(data.permissions.player.xuid);
         permission.permission = data.permissions.permission;
         server.commitPermissions();
         if(data.update) {
@@ -299,8 +302,8 @@ function addListeners() {
 
     });
     Server.addListener("copyWorld", async (socket, data: copyWorld) => {
-        const server = servers.find(s => s.id === data.toServer);
-        const serverFrom = servers.find(s => s.id === data.fromServer);
+        const server = servers.get(data.toServer);
+        const serverFrom = servers.get(data.fromServer);
         if(!(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_CREATE_WORLDS)
             || !(serverFrom.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_VIEW)) {
             const res: serverCopyResponse = {
@@ -335,7 +338,9 @@ function addListeners() {
             paths.forEach(pathToFile => {
                 const pathToFromWorld = path.join(serverFrom.path, 'worlds', pathToFile[0]);
                 const pathToToWorld = path.join(server.path, 'worlds', pathToFile[0].replace(data.fromWorld, data.toWorld));
-                proms.push(copy(pathToFromWorld, pathToToWorld));
+                proms.push(copy(pathToFromWorld, pathToToWorld).then(() => {
+                    truncate(pathToToWorld, pathToFile[1]);
+                }));
             });
             await Promise.all(proms);
             console.log("Done");
@@ -354,13 +359,13 @@ function addListeners() {
     });
     Server.addListener('deleteWorld', async (socket, data: deleteWorld) => {
         const id = Server.idFromSocket.get(socket);
-        const server = servers.find(s => s.id == data.serverId);
+        const server = servers.get(data.serverId);
         if(!(server.getUserPermissionLevel(id) & LocalPermissions.CAN_DELETE_WORLDS)) {
             return;
         }
         if (await server.deleteWorld(data.world)) {
-            console.log("Clobbering. properties: " + server.properties);
-            server.clobberWorld({ worlds: server.worlds, properties: server.properties });
+            // console.log("Clobbering. properties: " + server.properties);
+            server.clobberWorld({ worlds: server.worlds, properties: server.propertiesFull, currentWorld: server.currentWorld });
         }
     })
     // Server.addListener("")
@@ -414,3 +419,17 @@ function mapEntriesToString(entries) {
 //     Server.io.
 //     // Server.io.emit('clobberAll', data);
 // }
+function pKill() {
+    console.log("Servers stopping");
+    const proms = [];
+    servers.forEach(s => proms.push(s.stop()));
+    Promise.all(proms).then(() => {
+        console.log("Exiting");
+        Server.io.emit("serverShutdown");
+        process.exit();
+    });
+}
+rl.on('SIGINT', pKill);
+
+//catches uncaught exceptions
+// process.on('uncaughtException', pKill);

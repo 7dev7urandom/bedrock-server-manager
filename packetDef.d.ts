@@ -57,6 +57,7 @@ interface loginResultSuccess extends loginResult {
     username: string;
     globalPermissions: number;
 }
+interface serverShutdown {}
 interface serverList {
     servers: MinimalBServer[];
 }

@@ -10,8 +10,9 @@ import { clearTimeout } from "timers";
 import { permissionsFileToBPermissions, propertiesFileToBProperties } from '../localUtil';
 import Player from "./Player";
 // import { clobberAll } from '../index'
-const fs = require('fs');
-const fsprom = require('fs').promises;
+// const fs = require('fs-extra');
+import * as fs from 'fs-extra';
+// const fsprom = require('fs').promises;
 const path = require('path');
 
 export class ServerNotFoundError extends Error {
@@ -74,12 +75,22 @@ export class BServer {
         const perms = new Map(this.specPermissions);
         allPlayers.forEach(p => {
             if(perms.get(p.xuid)) return;
-            perms.set(p.xuid, { player: p, permission: this.properties["default-player-permission-level"]});
+            perms.set(p.xuid, { player: p, permission: "default"});
         })
         return perms;
     }
 
+    get propertiesFull() {
+        const props: any = Object.assign({}, this.properties);
+        props.autostart = this.autostart;
+        return props;
+    }
+
+    get name() {
+        return this.properties["server-name"];
+    }
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
+        // console.log("Starting server " + properties["server-name"]);
         this.properties = properties;
         this.id = id;
         this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
@@ -105,8 +116,8 @@ export class BServer {
             let dirhandle;
             try {
                 const pathToWorldsFolder = path.join(this.path, 'worlds');
-                await fsprom.mkdir(pathToWorldsFolder).catch(() => {});
-                dirhandle = (await fsprom.readdir(pathToWorldsFolder, { withFileTypes: true }));
+                await fs.mkdir(pathToWorldsFolder).catch(() => {});
+                dirhandle = (await fs.readdir(pathToWorldsFolder, { withFileTypes: true }));
                 dirhandle.filter(dir => dir.isDirectory()).forEach(dir => {
                     this.worlds[dir.name] = (new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
                 });
@@ -116,7 +127,11 @@ export class BServer {
     }
     getUserPermissionLevel(user: number): number {
         // console.log(mapEntriesToString(this.allowedUsers));
-        if (Server.dataFromId.get(user).globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL) return 255;
+        try {
+            if (Server.dataFromId.get(user).globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL) return 255;
+        } catch (e) {
+            console.log("error: " + Array.from(Server.dataFromId.entries()))
+        }
         return this.allowedUsers.get(user) || 0;
     }
     async start() {
@@ -125,7 +140,7 @@ export class BServer {
         // await this.getData();
         if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched) {
             BServer.queuedServers.push(this);
-            console.log("Queuing server id " + this.id);
+            // console.log("Queuing server id " + this.id);
             return;
         }
         if(BServer.portsStarted.has(this.properties['server-port'])) {
@@ -139,6 +154,7 @@ export class BServer {
             BServer.portsStarted.add(19132);
         }
         this.status = "Starting";
+        this.output = '';
         // this.proc = exec(`(cd ${this.path}; LD_LIBRARY_PATH=. ./bedrock_server)`);
         // Temporary for test dev
         // let command;
@@ -165,7 +181,7 @@ export class BServer {
         this.proc.on('exit', async code => {
             if(code != 0) {
                 console.error("I have literally no idea what to do right now. The server exited with an error code " + code);
-                if(BServer.is19132PortStarted && BServer.controls19132 === this) {
+                if(BServer.controls19132 === this) {
                     console.error("Starting other servers anyways as this 19132 server was blocking");
                     // BServer.controls19132 = undefined;
                     // BServer.is19132PortStarted = false;
@@ -193,21 +209,26 @@ export class BServer {
         });
         this.clobberAll();
     }
-    stop() {
-        if(this.status === 'Stopped') return;
-        this.sendData("stop");
-        this.status = "Stopping";
-        // if(BServer.controls19132 == this) {
-        //     BServer.is19132PortStarted = false;
-        //     BServer.controls19132 = undefined;
-        // }
-
-        this.clobberAll();
-        this.stopTimer = setTimeout(() => {
-            this.proc.kill();
-            this.status = "Stopped";
+    stop(): Promise<void> {
+        return new Promise(resolve => {
+            if(this.status === 'Stopped') {
+                return resolve();
+            };
+            this.sendData("stop");
+            this.status = "Stopping";
+            // if(BServer.controls19132 == this) {
+            //     BServer.is19132PortStarted = false;
+            //     BServer.controls19132 = undefined;
+            // }
+    
             this.clobberAll();
-        }, 5000);
+            this.stopTimer = setTimeout(() => {
+                this.proc.kill();
+                this.status = "Stopped";
+                this.clobberAll();
+            }, 5000);
+            this.queuedTasks.push(resolve);
+        })
     }
     backupHold(): Promise<[string, number][]> {
         return new Promise(resolve => {
@@ -234,8 +255,8 @@ export class BServer {
             let dirhandle;
             try {
                 const pathToWorldsFolder = path.join(this.path, 'worlds');
-                await fsprom.mkdir(pathToWorldsFolder).catch(() => {});
-                dirhandle = (await fsprom.readdir(pathToWorldsFolder, { withFileTypes: true }));
+                await fs.mkdir(pathToWorldsFolder).catch(() => {});
+                dirhandle = (await fs.readdir(pathToWorldsFolder, { withFileTypes: true }));
                 dirhandle.filter(dir => dir.isDirectory()).forEach(dir => {
                     this.worlds[dir.name] = (new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
                 });
@@ -311,7 +332,8 @@ export class BServer {
     commitPermissions() {
         let obj = [];
         Array.from(this.permissions.values()).forEach(perm => {
-            obj.push({ permission: perm.permission, xuid: perm.player.xuid });
+            if(perm.permission !== 'default')
+                obj.push({ permission: perm.permission, xuid: perm.player.xuid });
         });
         const json = JSON.stringify(obj);
         const filepath = path.join(this.path, "permissions.json");
@@ -323,9 +345,10 @@ export class BServer {
         this.proc.stdin.write(data + suffix);
         this.output += data + suffix;
         this.clobberWorld({ consoleAppend: data + suffix });
+        this.saveLog("> " + data + suffix);
     }
     async saveLog(toAppend: string) {
-        const pathToLog = path.join(this.path, 'logs', new Date().toUTCString().replace(":", "-") + ".txt");
+        const pathToLog = path.join(this.path, 'logs', new Date().toDateString() + ".txt");
         // Make sure logs dir exists
         fs.mkdir(path.join(this.path, 'logs'), parseInt('0777', 8), err => {
             if (err && err.code != "EEXIST") throw err;
@@ -337,10 +360,9 @@ export class BServer {
             return;
         }
         // Write output to log file 
-        // FIXME: all files are blank
         fs.appendFile(pathToLog, toAppend, err => {
-            // console.log("pathToLog: " + pathToLog, "toAppend: " + toAppend);
             if (err) throw err;
+            // console.log("pathToLog: " + pathToLog, "toAppend: " + toAppend);
         });
     }
     subscribe(event: string, callback: CallableFunction) {
@@ -415,16 +437,31 @@ export class BServer {
             const obj = {};
             Server.dataFromId.forEach((val, key) => {obj[key] = val});
             // console.log("Server dataFromId: ", obj);
+            const done = new Set();
             this.allowedUsers.forEach((val, key) => {
                 const user = Server.dataFromId.get(key);
                 allowedUsers2.push({
                     id: key,
                     name: user.username,
                     perm: user.perm,
-                    access: val
+                    access: user.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL ? 255 : 0
+                })
+                done.add(key);
+            })
+            Server.dataFromId.forEach((val, key) => {
+                if(done.has(key)) return;
+
+                const access = val.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL ? 255 : 0;
+                allowedUsers2.push({
+                    id: key,
+                    name: val.username,
+                    perm: val.perm,
+                    access
                 })
             })
         }
+        const props = Object.assign({}, this.properties);
+        props['autostart'] = this.autostart
         // Make a new object to populate with required fields
         const serverData: fullServerSend = {
             id: this.id,
@@ -432,7 +469,7 @@ export class BServer {
             status: this.status,
             version: this.version,
             onlinePlayers: this.onlinePlayers > 0 ? this.onlinePlayers : 0,
-            properties: this.properties,
+            properties: props,
             permissions: permLevel & LocalPermissions.CAN_EDIT_PROPERTIES ? Array.from(this.permissions.values()) : undefined, // Vauge, but means can edit in-game permissions if allowed to edit properties
             worlds: this.worlds,
             whitelist: this.whitelist, // Currently always null
@@ -449,22 +486,29 @@ export class BServer {
     async createWorld({name, seed, levelType}: createWorld) {
         // Perms had better be checked. Not verifying
 
-        if(this.worlds[name]) return;
+        if(this.worlds[name]) {
+            console.log("World already created");
+            return;
+        }
         this.worlds[name] = new BWorld(this.id, name, path.join(path.join(this.path, 'worlds'), name), false);
         this.properties['level-seed'] = seed;
         this.properties['level-name'] = name;
         this.properties['level-type'] = levelType;
         await this.properties.commit(path.join(this.path, 'server.properties'));
-        this.stop();
-        this.queuedTasks.push(async () => {
+        const restartS = async () => {
             await this.start();
             this.worlds[name].generated = true;
-            this.clobberWorld({ worlds: this.worlds });
-        });
+            this.clobberWorld({ worlds: this.worlds, properties: this.properties });
+        }
+        if(this.status == "Stopped") {
+            restartS();
+            return;
+        }
+        this.queuedTasks.push(restartS);
+        this.stop();
     }
     /** 
      * Permissions need to be checked before calling this function
-     * TODO: test delete
      */
     async deleteWorld(name) {
         console.log("Deleting, name: " + name);
@@ -473,6 +517,7 @@ export class BServer {
             await this.stop();
             this.properties["level-name"] = Object.getOwnPropertyNames(this.worlds).find(s => s !== name) || 'Bedrock level';
             this.properties.commit(path.join(this.path, 'server.properties'));
+            this.currentWorld = this.properties["level-name"];
         }
         let success = await this.worlds[name].destroy();
         this.worlds[name] = undefined;
