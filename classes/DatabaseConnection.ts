@@ -38,7 +38,7 @@ export default class DatabaseConnection {
             return await this.connection.query(object);
         if(this.type === 'mysql')
             return new Promise((r, rej) => {
-                let query: string = object.query;
+                let query: string = object.text;
                 let args = [];
                 query.replace(/$(\d)/, (match, num) => {
                     args.push(object.values[parseInt(num)]);
