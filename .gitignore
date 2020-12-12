@@ -3,3 +3,4 @@ node_modules
 *.js
 settings.json
 *tmp*
+browser/
