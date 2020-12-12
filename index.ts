@@ -5,7 +5,7 @@ import { copy, truncate } from 'fs-extra';
 import { GlobalPermissions, Server } from './Server';
 import DatabaseConnection from './classes/DatabaseConnection';
 import path = require('path');
-import { propertiesFileToBProperties, permissionsFileToBPermissions } from './LocalUtil'
+import { propertiesFileToBProperties, permissionsFileToBPermissions } from './localUtil'
 import config from './config';
 import { DBRefresh, getServers, refreshDB, serverLoad, fullServerSend, setPermission, consoleCommand, changeStatus, createWorld, setOpVal, userPermissionData, copyWorld, serverCopyResponse, deleteWorld } from './packetDef';
 import { BProperties } from './classes/BProperties';
