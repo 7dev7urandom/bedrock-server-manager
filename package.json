@@ -24,6 +24,7 @@
   "homepage": "https://github.com/7dev7urandom/bedrock-server-manager#readme",
   "dependencies": {
     "@types/fs-extra": "^9.0.4",
+    "@types/mysql": "^2.15.16",
     "@types/node": "^14.0.14",
     "@types/socket.io": "^2.1.8",
     "dotenv": "^8.2.0",

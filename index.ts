@@ -13,7 +13,6 @@ import Player from './classes/Player';
 import { BWorld } from './classes/BWorld';
 import { createInterface } from 'readline';
 import { createHash } from 'crypto';
-import { create } from 'domain';
 /**
  * node index.js util
  * - hash <password>
