@@ -12,6 +12,23 @@ import { BProperties } from './classes/BProperties';
 import Player from './classes/Player';
 import { BWorld } from './classes/BWorld';
 import { createInterface } from 'readline';
+import { createHash } from 'crypto';
+import { create } from 'domain';
+/**
+ * node index.js util
+ * - hash <password>
+ * - adduser <user> <password> <permissions> // Not implemented
+*/
+if(process.argv[2] == 'util') {
+    switch(process.argv[3]) {
+        case 'hash':
+            console.log(require('crypto').createHash('md5').update(process.argv[4]).digest("hex"));
+            break;
+        default:
+            console.log(`Option "${process.argv[3]}" not recognized. Valid options: [hash]`);
+            break;
+}
+}
 
 const rl = createInterface({
     input: process.stdin,
@@ -75,13 +92,12 @@ DatabaseConnection.query({
     })
 })
 
-
 function addListeners() {
     Server.addListener("login", (socket, dataIn) => {
         DatabaseConnection.query({
             // rowMode: 'array',
             text: 'SELECT * FROM users WHERE username=$1 AND password=$2',
-            values: [dataIn.username, dataIn.password]
+            values: [dataIn.username, createHash('md5').update(dataIn.password).digest('hex')]
         }).then(result => {
             if(result.rows.length === 0) {
                 socket.emit("loginResult", { success: false });
