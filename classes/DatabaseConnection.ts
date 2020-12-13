@@ -40,7 +40,7 @@ export default class DatabaseConnection {
             return new Promise((r, rej) => {
                 let query: string = object.text;
                 let args = [];
-                query = query.replace(/$(\d)/, (match, num) => {
+                query = query.replace(/$(\d)/g, (match, num) => {
                     args.push(object.values[parseInt(num) - 1]);
                     return '?';
                 });
