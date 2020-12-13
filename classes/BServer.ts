@@ -159,7 +159,12 @@ export class BServer {
         // Temporary for test dev
         // let command;
         // if(this.description == 'A real genuine test of the software') {
-        let command = `(cd ${this.path} & bedrock_server.exe)`;
+        let command;
+        if(process.platform === 'win32') {
+            command = `(cd ${this.path} & bedrock_server.exe)`;
+        } else if (process.platform === 'linux') {
+            command = `cd ${this.path} && LD_LIBRARY_PATH=. ./bedrock_server`;
+        }
         // } else {
 
             // command = `(cd ${this.path} & dummyserver.exe)`;
