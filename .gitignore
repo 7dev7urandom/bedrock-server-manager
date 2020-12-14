@@ -4,3 +4,5 @@ node_modules
 settings.json
 *tmp*
 browser/
+servers/
+bedrock-server-manager-client/
