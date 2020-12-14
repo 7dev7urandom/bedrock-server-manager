@@ -27,6 +27,7 @@ if(process.argv[2] == 'util') {
             console.log(`Option "${process.argv[3]}" not recognized. Valid options: [hash]`);
             break;
 }
+process.exit();
 }
 
 const rl = createInterface({
@@ -67,7 +68,11 @@ Promise.all([serverQuery, playerQuery]).then(results => {
         const propertiesPromise = propertiesFileToBProperties(path.join(server.path, "server.properties"));
         const permissionsPromise = permissionsFileToBPermissions(path.join(server.path, "permissions.json"));
         Promise.all([propertiesPromise, permissionsPromise]).then(([properties, permissions]) => {
-            servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, JSON.parse(server.allowedusers)));
+            if(DatabaseConnection.type == 'mysql')
+                servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, JSON.parse(server.allowedusers)));
+            else
+                servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, (server.allowedusers)));
+
         });
     });
     results[1].rows.forEach(p => new Player(p.username, p.xuid));
