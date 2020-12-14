@@ -310,6 +310,7 @@ function addListeners() {
                 player: Player.xuidToPlayer.get(data.permissions.player.xuid),
                 permission: data.permissions.permission
             }
+            server.specPermissions.set(data.permissions.player.xuid, permission);
         } else {
             permission.permission = data.permissions.permission;
         }
