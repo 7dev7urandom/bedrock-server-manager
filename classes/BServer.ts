@@ -39,6 +39,7 @@ export class BServer {
     static isLaunched: boolean = false;
     static controls19132: BServer | null = null;
     static portsStarted: Set<number> = new Set();
+    static initTotalServers: number;
     properties: BProperties | null; //
     id: number; //
     specPermissions: Map<string, BPermission> | null; // xuid -> BPermission
@@ -91,6 +92,7 @@ export class BServer {
     }
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
+        BServer.initTotalServers--;
         this.properties = properties;
         this.id = id;
         this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
@@ -138,10 +140,13 @@ export class BServer {
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
         if(this.status === "Running") return;
         // await this.getData();
-        if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched) {
+        if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched && !BServer.initTotalServers) {
             BServer.queuedServers.push(this);
             // console.log("Queuing server id " + this.id);
             return;
+        }
+        if(!BServer.initTotalServers) {
+            BServer.startQueuedServers();
         }
         if(BServer.portsStarted.has(this.properties['server-port'])) {
             console.log("Canceling. " + Array.from(BServer.portsStarted));

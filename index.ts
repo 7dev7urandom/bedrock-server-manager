@@ -62,6 +62,7 @@ const playerQuery = DatabaseConnection.query({
     text: 'SELECT * FROM players'
 });
 Promise.all([serverQuery, playerQuery]).then(results => {
+    BServer.initTotalServers = results[0].length;
     results[0].rows.forEach(server => {
         const propertiesPromise = propertiesFileToBProperties(path.join(server.path, "server.properties"));
         const permissionsPromise = permissionsFileToBPermissions(path.join(server.path, "permissions.json"));
