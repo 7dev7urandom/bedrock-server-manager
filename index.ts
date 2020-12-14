@@ -305,7 +305,14 @@ function addListeners() {
         
         // server.permissions = data.permissions;
         let permission = server.specPermissions.get(data.permissions.player.xuid);
-        permission.permission = data.permissions.permission;
+        if(!permission) {
+            permission = {
+                player: Player.xuidToPlayer.get(data.permissions.player.xuid),
+                permission: data.permissions.permission
+            }
+        } else {
+            permission.permission = data.permissions.permission;
+        }
         server.commitPermissions();
         if(data.update) {
             // if(data.permissions.permission === 'operator') {

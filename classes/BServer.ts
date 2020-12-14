@@ -143,7 +143,6 @@ export class BServer {
         if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched && BServer.initTotalServers) {
             BServer.queuedServers.push(this);
             // console.log("Queuing server id " + this.id);
-            console.log(BServer.initTotalServers);
             return;
         }
         if(!BServer.initTotalServers) {
