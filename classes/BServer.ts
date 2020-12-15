@@ -444,23 +444,22 @@ export class BServer {
         let allowedUsers2 = [];
         // Don't do allowedUsers inline because there are several steps
         if(permLevel & LocalPermissions.CAN_EDIT_PERMISSIONS) {
-            const obj = {};
-            Server.dataFromId.forEach((val, key) => {obj[key] = val});
             // console.log("Server dataFromId: ", obj);
             const done = new Set();
+            // Add specific permissions
             this.allowedUsers.forEach((val, key) => {
                 const user = Server.dataFromId.get(key);
                 allowedUsers2.push({
                     id: key,
                     name: user.username,
                     perm: user.perm,
-                    access: user.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL ? 255 : 0
+                    access: val
                 })
                 done.add(key);
-            })
+            });
+            // Add all the other ones in case the aren't in there already so that all users are in the list
             Server.dataFromId.forEach((val, key) => {
                 if(done.has(key)) return;
-
                 const access = val.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL ? 255 : 0;
                 allowedUsers2.push({
                     id: key,
