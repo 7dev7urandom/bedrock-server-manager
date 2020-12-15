@@ -65,7 +65,10 @@ export class Server {
             for (let event of Array.from(Server.listeners.keys())) {
                 for(let callback of Server.listeners.get(event)) {
                     // console.log(`Event ${event} with callback ${callback}`);
-                    socket.on(event, data => callback(socket, data));
+                    socket.on(event, data => {
+                        if(!Server.idFromSocket.get(socket) && event !== 'login') return;
+                        callback(socket, data);
+                    });
                 }
             }
         });
