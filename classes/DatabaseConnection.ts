@@ -33,7 +33,7 @@ export default class DatabaseConnection {
         }
     }
     static async query(object) {
-        console.log("Database query " + ++DatabaseConnection.numOfQuerys);
+        // console.log("Database query " + object.text + " with values " + JSON.stringify(object.values));
         if(this.type === 'postgresql')
             return await this.connection.query(object);
         if(this.type === 'mysql')

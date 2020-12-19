@@ -1,5 +1,5 @@
-import { ServerPermissions, NO_PERMISSION_ERROR } from './Constants';
-import { BServer, LocalPermissions, MinimalBServer } from './classes/BServer'
+import { NO_PERMISSION_ERROR } from './Constants';
+import { BServer, LocalPermissions } from './classes/BServer'
 import { readFileSync } from 'fs';
 import { copy, truncate } from 'fs-extra';
 import { GlobalPermissions, Server } from './Server';
@@ -13,6 +13,9 @@ import Player from './classes/Player';
 import { BWorld } from './classes/BWorld';
 import { createInterface } from 'readline';
 import { createHash } from 'crypto';
+import { VanillaServer } from './classes/VanillaServer';
+import { exec } from 'child_process';
+import { BDSXServer } from './classes/BDSXServer';
 /**
  * node index.js util
  * - hash <password>
@@ -29,6 +32,12 @@ if(process.argv[2] == 'util') {
 }
 process.exit();
 }
+console.log("Checking for wine...");
+getWineName().then(x => {
+    BDSXServer.wineName = x;
+    console.log("Wine found");
+    BDSXServer.wineNameFound();
+});
 
 const rl = createInterface({
     input: process.stdin,
@@ -69,9 +78,9 @@ Promise.all([serverQuery, playerQuery]).then(results => {
         const permissionsPromise = permissionsFileToBPermissions(path.join(server.path, "permissions.json"));
         Promise.all([propertiesPromise, permissionsPromise]).then(([properties, permissions]) => {
             if(DatabaseConnection.type == 'mysql')
-                servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, JSON.parse(server.allowedusers)));
+                servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, JSON.parse(server.allowedusers)));
             else
-                servers.set(server.id, new BServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, (server.allowedusers)));
+                servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, (server.allowedusers)));
 
         });
     });
@@ -117,6 +126,10 @@ function addListeners() {
                 globalPermissions: data.globalpermissions,
             });
             const userData = Server.dataFromId.get(data.id);
+            if(userData.socket) {
+                userData.socket.emit("logout");
+                Server.idFromSocket.delete(userData.socket);
+            }
             userData.socket = socket;
 
             Server.dataFromId.set(data.id, userData);
@@ -170,6 +183,10 @@ function addListeners() {
             server.properties.commit(path.join(server.path, 'server.properties'));
             if(description) {
                 server.description = description;
+                DatabaseConnection.query({
+                    text: `UPDATE servers SET description = $1 where id = $2`,
+                    values: [description, server.id]
+                });
             }
             if(server.status === 'Running') {
                 server.clobberWorld({ properties: server.propertiesFull, description: description });
@@ -220,19 +237,43 @@ function addListeners() {
             // socket.emit("permissionSetError", packet);
             return;
         }
-        if((server.getUserPermissionLevel(userId) && server.getUserPermissionLevel(userId) & LocalPermissions.CAN_EDIT_PERMISSIONS) || (user.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL)) {
+        if((server.getUserPermissionLevel(userId) && server.getUserPermissionLevel(userId) & LocalPermissions.CAN_EDIT_PERMISSIONS)) {
             server.allowedUsers.set(id, perm);
-            let data: userPermissionData[] = [];
+            let allowedUsers2 = [];
+            // Don't do allowedUsers inline because there are several steps
+            // console.log("Server dataFromId: ", obj);
+            const done = new Set();
+            // Add specific permissions
             server.allowedUsers.forEach((val, key) => {
                 const user = Server.dataFromId.get(key);
-                data.push({
+                allowedUsers2.push({
                     id: key,
                     name: user.username,
                     perm: user.perm,
                     access: val
-                });
+                })
+                done.add(key);
             });
-            server.clobberWorld({ allowedUsers: data });
+            // Add all the other ones in case the aren't in there already so that all users are in the list
+            Server.dataFromId.forEach((val, key) => {
+                if(done.has(key)) return;
+                const access = val.globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL ? 255 : 0;
+                allowedUsers2.push({
+                    id: key,
+                    name: val.username,
+                    perm: val.perm,
+                    access
+                })
+            })
+            server.clobberWorld({ allowedUsers: allowedUsers2 });
+            const obj = {};
+            server.allowedUsers.forEach((val, key) => {
+                obj[key] = val;
+            })
+            DatabaseConnection.query({
+                text: `UPDATE servers SET allowedUsers = $1 WHERE id = $2`,
+                values: [JSON.stringify(obj), server.id]
+            });
             // socket.emit("permissionSet", packet);
             // socket.emit("debug", { msg: user.username });
         } else {
@@ -243,7 +284,6 @@ function addListeners() {
             // // console.log("Error no permission " + server.getUserPermissionLevel(user));
             // socket.emit("permissionSetError", packet);
         }
-        // TODO: set user's new permissions in db
     });
     Server.addListener("refreshDB", (socket, data: refreshDB) => {
         if(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_REFRESH_DB) {
@@ -417,11 +457,6 @@ function addListeners() {
 //         Server.io.to("sId" + server.id)
 //     })
 // }
-function mapEntriesToString(entries) {
-    return Array
-      .from(entries, ([k, v]) => `\n  ${k}: ${v}`)
-      .join("") + "\n";
-  }
 // export async function clobberAll() {
 //     // data.id = this.id;
 //     // Server.dataFromId.forEach(userdata => {
@@ -454,7 +489,7 @@ function pKill() {
     servers.forEach(s => proms.push(s.stop()));
     Promise.all(proms).then(() => {
         console.log("Exiting");
-        Server.io.emit("serverShutdown");
+        Server.io.emit("logout");
         process.exit();
     });
 }
@@ -462,3 +497,34 @@ rl.on('SIGINT', pKill);
 
 //catches uncaught exceptions
 // process.on('uncaughtException', pKill);
+
+class WineNotFoundError extends Error {
+    constructor(str = "Wine is not installed! Modded servers cannot be run.") {
+        super(str);
+    }
+}
+
+async function getWineName(): Promise<string | false> {
+    return new Promise(resolve => {
+        if(process.platform === 'win32') {
+            resolve('wine');
+            return;
+        }
+        exec(`command -v wine`, (err, stdout) => {
+            if(err) throw err;
+            // console.log(stdout);
+            if(stdout.includes("wine")) {
+                resolve(`wine`);
+            } else {
+                exec(`command -v wine64`, (err, stdout) => {
+                    if(err) throw err;
+                    if(stdout.includes("wine64")) {
+                        resolve(`wine64`);
+                    } else {
+                        throw new WineNotFoundError();
+                    }
+                });
+            }
+        });
+    });
+}

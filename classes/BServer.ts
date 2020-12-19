@@ -22,7 +22,7 @@ export class ServerNotFoundError extends Error {
 export interface MinimalBServer {
     id: number;
     version: string;
-    onlinePlayers: number;
+    onlinePlayers: Array<Player>;
     'max-players': number;
     access: number;
     'server-port': number;
@@ -46,7 +46,7 @@ export class BServer {
     worlds: { [key: string]: BWorld } = {};
     version: string;
     whitelist: null;
-    onlinePlayers: number;
+    onlinePlayers: Set<Player> = new Set();
     maxPlayers: number;
     port: number;
     output: string = '';
@@ -66,6 +66,8 @@ export class BServer {
     queryInterval: NodeJS.Timeout;
     expectLine: ((data: string) => void)[] = [];
     backupResolve: CallableFunction;
+
+    command: string;
     // #region test
 
     // Gets all users mentioned in permissions.json and all players in db
@@ -90,9 +92,10 @@ export class BServer {
     get name() {
         return this.properties["server-name"];
     }
-    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, command: string, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
         BServer.initTotalServers--;
+        this.command = command;
         this.properties = properties;
         this.id = id;
         this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
@@ -104,6 +107,7 @@ export class BServer {
         // this.name = name;
         this.description = desc;
         this.currentWorld = this.properties['level-name'];
+        // console.log(this.properties);
         this.properties["server-portv6"] = 65000 + this.id;
         this.properties.commit(path.join(this.path, 'server.properties'));
         // this.getData().then(() => {
@@ -138,14 +142,16 @@ export class BServer {
     }
     async start() {
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
-        if(this.status === "Running") return;
+        console.log(this.command);
+        if(this.status !== "Stopped") return;
         // await this.getData();
-        if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched && BServer.initTotalServers) {
+        if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched) {
             BServer.queuedServers.push(this);
             // console.log("Queuing server id " + this.id);
             return;
         }
-        if(!BServer.initTotalServers) {
+        if(!BServer.initTotalServers && BServer.is19132PortStarted && !BServer.isLaunched) {
+            // console.log("init: " + BServer.initTotalServers);
             BServer.startQueuedServers();
         }
         if(BServer.portsStarted.has(this.properties['server-port'])) {
@@ -160,23 +166,19 @@ export class BServer {
         }
         this.status = "Starting";
         this.output = '';
+        this.clobberWorld({ output: '' });
         // this.proc = exec(`(cd ${this.path}; LD_LIBRARY_PATH=. ./bedrock_server)`);
         // Temporary for test dev
         // let command;
         // if(this.description == 'A real genuine test of the software') {
-        let command;
-        if(process.platform === 'win32') {
-            command = `(cd ${this.path} & bedrock_server.exe)`;
-        } else if (process.platform === 'linux') {
-            command = `cd ${this.path} && LD_LIBRARY_PATH=. ./bedrock_server`;
-        }
+        // let command = START_COMMAND;
         // } else {
 
             // command = `(cd ${this.path} & dummyserver.exe)`;
         // }
 
         // console.log(command);
-        this.proc = exec(command);
+        this.proc = exec(this.command);
         this.proc.stderr.on('data', data => console.error("I have literally no idea what to do right now. The server gave an error message: " + data.toString()));
         this.proc.stdout.on('data', bytedata => {
             const data: string = bytedata.toString();
@@ -190,26 +192,37 @@ export class BServer {
         });
         this.proc.on('exit', async code => {
             if(code != 0) {
+                // console.log("1");
                 console.error("I have literally no idea what to do right now. The server exited with an error code " + code);
                 if(BServer.controls19132 === this) {
                     console.error("Starting other servers anyways as this 19132 server was blocking");
                     // BServer.controls19132 = undefined;
                     // BServer.is19132PortStarted = false;
-                    BServer.startQueuedServers();
+                    // console.log("2");
+                    // BServer.startQueuedServers();
+                    BServer.isLaunched = true;
+                    BServer.queuedServers.shift().start();
                 }
             }
+            // console.log("1");
             if(BServer.controls19132 === this) {
+                // console.log("2");
                 BServer.controls19132 = undefined;
                 BServer.is19132PortStarted = false;
                 BServer.portsStarted.delete(19132);
             }
+            // console.log("1");
             BServer.portsStarted.delete(this.properties['server-port']);
+            // console.log("1");
             this.status = "Stopped";
             this.specPermissions = new Map((await permissionsFileToBPermissions(path.join(this.path, "permissions.json"))).map(p => [p.player.xuid, p]));
             this.properties = await propertiesFileToBProperties(path.join(this.path, "server.properties"));
             this.currentWorld = this.properties['level-name'];
+            // console.log("1");
             this.clobberWorld({ status: this.status, currentWorld: this.currentWorld, properties: this.properties });
+            // console.log("1");
             this.clobberAll();
+            // console.log("1");
             clearTimeout(this.stopTimer);
             // console.log("Stopped, running queued tasks: ", this.queuedTasks);
             // Wait a little bit before running queuedTasks so the server can confirm stopped before doing anything else
@@ -282,8 +295,6 @@ export class BServer {
         }
         else if(this.status === "Stopping" && data.endsWith("Quit correctly\n")) {
             // Stopped correctly, not doing anything with this info currently
-        } else if(this.status == "Running" && data.includes("Player disconnected")) {
-            this.onlinePlayers--;
         } else if (this.status == "Running" && data.includes("Player connected")) {
             const regex = /\[INFO\] Player connected: (\w+), xuid: (\d+)/.exec(data);
             const username = regex[1];
@@ -291,6 +302,8 @@ export class BServer {
             if(!Player.xuidToPlayer.get(xuid)) {
                 new Player(username, xuid, true);
             }
+            this.onlinePlayers.add(Player.xuidToPlayer.get(xuid));
+            this.clobberAll();
         } else if (this.status == "Running" && data.includes("Player disconnected")) {
             const regex = /\[INFO\] Player disconnected: (\w+), xuid: (\d+)/.exec(data);
             const username = regex[1];
@@ -298,6 +311,8 @@ export class BServer {
             if(!Player.xuidToPlayer.get(xuid)) {
                 new Player(username, xuid, true);
             }
+            this.onlinePlayers.delete(Player.xuidToPlayer.get(xuid));
+            this.clobberAll();
         }
         // console.log(this.expectLine);
         this.expectLine.forEach(f => {
@@ -396,7 +411,7 @@ export class BServer {
         return {
             id: this.id,
             version: this.version,
-            onlinePlayers: this.onlinePlayers > 0 ? this.onlinePlayers : 0,
+            onlinePlayers: Array.from(this.onlinePlayers),
             'max-players': this.properties['max-players'] > 0 ? this.properties['max-players'] : 0,
             'server-port': this.properties['server-port'],
             status: this.status,
@@ -409,10 +424,15 @@ export class BServer {
         };
     }
     static startQueuedServers() {
+        // console.trace("startQueuedServers says I");
         BServer.isLaunched = true;
+        // console.log("3c");
         BServer.queuedServers.forEach(server => {
+            // console.log("3 1");
             server.start();
+            // console.log("3");
         });
+        // console.log("3");
         BServer.queuedServers = [];
     }
     clobberWorld(data: serverUpdate) {
@@ -425,7 +445,7 @@ export class BServer {
             
             if(userdata.selectedServer == this.id) {
                 // console.log("Sending to user id " + userdata.id + " data " + data.status);
-                userdata.socket.emit("serverUpdate", data);
+                userdata.socket.emit("serverUpdate", tmpData);
             }
         })
     }
@@ -477,7 +497,7 @@ export class BServer {
             description: this.description,
             status: this.status,
             version: this.version,
-            onlinePlayers: this.onlinePlayers > 0 ? this.onlinePlayers : 0,
+            onlinePlayers: Array.from(this.onlinePlayers),
             properties: props,
             permissions: permLevel & LocalPermissions.CAN_EDIT_PROPERTIES ? Array.from(this.permissions.values()) : undefined, // Vauge, but means can edit in-game permissions if allowed to edit properties
             worlds: this.worlds,

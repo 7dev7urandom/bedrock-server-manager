@@ -1,6 +1,7 @@
 import BPermission from "./classes/BPermissions";
 import { BProperties } from "./classes/BProperties";
 import { MinimalBServer } from "./classes/BServer";
+import Player from "./classes/Player";
 
 // #region client to server
 interface setPermission {
@@ -57,7 +58,6 @@ interface loginResultSuccess extends loginResult {
     username: string;
     globalPermissions: number;
 }
-interface serverShutdown {}
 interface serverList {
     servers: MinimalBServer[];
 }
@@ -99,6 +99,7 @@ interface serverUpdate {
     description?: string;
     allowedUsers?: userPermissionData[];
     controls19132?: boolean;
+    output?: string;
 }
 interface clobberAll {
     server: MinimalBServer;
@@ -111,7 +112,7 @@ interface fullServerSend {
     description: string;
     status: string;
     version: string;
-    onlinePlayers: number;
+    onlinePlayers: Array<Player>;
     properties: BProperties;
     worlds: any;
     whitelist: null;
