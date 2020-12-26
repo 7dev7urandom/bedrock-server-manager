@@ -1,4 +1,4 @@
-config.ts
+config.json
 node_modules
 *.js
 settings.json

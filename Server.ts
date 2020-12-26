@@ -3,20 +3,21 @@ import { Socket, Server as socketServer } from 'socket.io';
 import * as socketio from 'socket.io';
 import { readFile } from 'fs';
 import { unescape } from 'querystring';
-import { ServerPermissions } from './Constants';
+
+export type userIdNum = number;
 
 export interface SocketListener {
     (socket: Socket, data: any): void;
 }
 export interface UserData {
-    id: number;
+    id: userIdNum;
     perm: string;
     socket?: Socket;
     username: string;
     globalPermissions: number;
     selectedServer: number | null;
 }
-export class GlobalPermissions extends ServerPermissions {
+export class GlobalPermissions {
     static readonly CAN_CREATE_SERVER =     0b00000001;
     static readonly CAN_DELETE_SERVER =     0b00000010;
     static readonly CAN_GRANT_PERMISSIONS = 0b00000100;
@@ -31,8 +32,8 @@ export class Server {
     static server: any;
     static io: socketServer;
     static listeners: Map<string, SocketListener[]> = new Map<string, SocketListener[]>();
-    static dataFromId: Map<number, UserData> = new Map<number, UserData>();
-    static idFromSocket: Map<Socket, number> = new Map<Socket, number>();
+    static dataFromId: Map<userIdNum, UserData> = new Map<userIdNum, UserData>();
+    static idFromSocket: Map<Socket, userIdNum> = new Map<Socket, userIdNum>();
 
     static start(page) {
         Server.page = page;
@@ -66,7 +67,11 @@ export class Server {
                 for(let callback of Server.listeners.get(event)) {
                     // console.log(`Event ${event} with callback ${callback}`);
                     socket.on(event, data => {
-                        if(!Server.idFromSocket.get(socket) && event !== 'login') return;
+                        if(!Server.idFromSocket.get(socket) && event !== 'login') {
+                            console.warn(`Unauthorized packet ${event} from non-logged in user with IP address ${socket.request.connection.remoteAddress}`);
+                            return;
+                        };
+                        console.log(`${event} from ${Server.idFromSocket.get(socket) ? Server.dataFromId.get(Server.idFromSocket.get(socket)).username : "annonymous user" }`);
                         callback(socket, data);
                     });
                 }

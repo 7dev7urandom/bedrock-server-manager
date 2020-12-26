@@ -2,10 +2,11 @@ import BPermission from "./classes/BPermissions";
 import { BProperties } from "./classes/BProperties";
 import { MinimalBServer } from "./classes/BServer";
 import Player from "./classes/Player";
+import { userIdNum } from './Server';
 
 // #region client to server
 interface setPermission {
-    userId: number;
+    userId: userIdNum;
     perm: number;
     serverId: number;
 }
@@ -41,6 +42,13 @@ interface setOpVal {
     serverId: number;
 }
 
+interface createServer {
+    name: string;
+    description: string;
+    version: string;
+    type: 'bdsx' | 'elementzeror' | 'vanilla';
+}
+
 // Use changeProperty
 // interface selectWorld {
 //     name: string;
@@ -48,12 +56,22 @@ interface setOpVal {
 // }
 // #endregion
 
-// #region server to client 
+// #region server to client
+
+interface localPermUpdate {
+    serverId: number;
+    newPermissions: number;
+}
+
+interface globalPermUpdate {
+    newPermissions: number;
+}
+
 interface loginResult {
     success: boolean;
 }
 interface loginResultSuccess extends loginResult {
-    id: number;
+    id: userIdNum;
     perm: string;
     username: string;
     globalPermissions: number;
@@ -123,6 +141,7 @@ interface fullServerSend {
     output?: string;
     allowedUsers?: userPermissionData[];
     currentWorld: string;
+    type: 'bdsx' | 'elementzeror' | 'vanilla';
 }
 
 interface refreshDB {}
@@ -149,7 +168,7 @@ interface debug {
 // #endregion
 
 interface userPermissionData {
-    id: number;
+    id: userIdNum;
     name: string;
     perm: string;
     access: number;

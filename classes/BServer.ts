@@ -4,7 +4,6 @@ import { BProperties } from './BProperties';
 import { ChildProcess, exec } from "child_process";
 import { Socket } from "socket.io";
 import { Server, GlobalPermissions } from '../Server'
-import { ServerPermissions } from '../Constants';
 import { createWorld, fullServerSend, serverUpdate } from '../packetDef';
 import { clearTimeout } from "timers";
 import { permissionsFileToBPermissions, propertiesFileToBProperties } from '../localUtil';
@@ -66,6 +65,7 @@ export class BServer {
     queryInterval: NodeJS.Timeout;
     expectLine: ((data: string) => void)[] = [];
     backupResolve: CallableFunction;
+    type: 'bdsx' | 'elementzeror' | 'vanilla';
 
     command: string;
     // #region test
@@ -142,7 +142,7 @@ export class BServer {
     }
     async start() {
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
-        console.log(this.command);
+        // console.log(this.command);
         if(this.status !== "Stopped") return;
         // await this.getData();
         if(!BServer.is19132PortStarted && this.properties["server-port"] !== 19132 && !BServer.isLaunched) {
@@ -179,7 +179,7 @@ export class BServer {
 
         // console.log(command);
         this.proc = exec(this.command);
-        this.proc.stderr.on('data', data => console.error("I have literally no idea what to do right now. The server gave an error message: " + data.toString()));
+        this.proc.stderr.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.stdout.on('data', bytedata => {
             const data: string = bytedata.toString();
             // console.log("data from server id " + this.id + ": " + data);
@@ -191,7 +191,7 @@ export class BServer {
             }
         });
         this.proc.on('exit', async code => {
-            if(code != 0) {
+            if(code != 0 && this.status !== 'Stopping') {
                 // console.log("1");
                 console.error("I have literally no idea what to do right now. The server exited with an error code " + code);
                 if(BServer.controls19132 === this) {
@@ -201,7 +201,8 @@ export class BServer {
                     // console.log("2");
                     // BServer.startQueuedServers();
                     BServer.isLaunched = true;
-                    BServer.queuedServers.shift().start();
+                    if(BServer.queuedServers.length)
+                        BServer.queuedServers.shift().start();
                 }
             }
             // console.log("1");
@@ -508,7 +509,8 @@ export class BServer {
             // path: this.path,
             allowedUsers: allowedUsers2,
             autostart: this.autostart,
-            currentWorld: this.currentWorld
+            currentWorld: this.currentWorld,
+            type: this.type
         };
         socket.emit("fullServerSend", serverData);
     }
@@ -574,7 +576,7 @@ export class BServer {
         // Server.io.emit('clobberAll', data);
     }
 }
-export class LocalPermissions extends ServerPermissions {
+export class LocalPermissions {
     static readonly CAN_VIEW             = 0b0000000001;
     static readonly CAN_USE_CONSOLE      = 0b0000000010;
     static readonly CAN_EDIT_PROPERTIES  = 0b0000000100;

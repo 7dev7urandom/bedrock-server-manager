@@ -35,7 +35,7 @@ export class BProperties  {
             data += k + "=" + this[k] + "\n";
         }
         
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             fs.writeFile(path, data, err => {
                 if(err) reject(err);
                 else resolve();
@@ -43,7 +43,7 @@ export class BProperties  {
         })
 
     }
-    constructor(self) {
+    constructor(self = {}) {
         Object.getOwnPropertyNames(self).forEach(name => {
             if(!isNaN(parseInt(self[name]))) this[name] = parseInt(self[name]);
             else if (self[name] == 'true' || self[name] == 'false') this[name] = (self[name] == 'true');
