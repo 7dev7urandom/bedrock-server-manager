@@ -9,16 +9,33 @@ tsc
 node index.js util hash <your chosen admin password>
 ```
 
-Create db tables
+Create db tables (mysql):
 
 ```sql
 CREATE DATABASE bsm;
 USE bsm;
-CREATE TABLE users (id int NOT NULL, username varchar(20) NOT NULL, password char(32) NOT NULL, perm varchar(20), globalpermissions smallint, PRIMARY KEY(id));
+CREATE USER 'bsm'@'localhost' IDENTIFIED WITH mysql_native_password BY '<yourpassword>';
+GRANT ALL PRIVILEGES ON bsm.* TO 'bsm'@'localhost';
+CREATE TABLE users (id int NOT NULL AUTO_INCREMENT, username varchar(20) NOT NULL, password char(32) NOT NULL, perm varchar(20), globalpermissions smallint, PRIMARY KEY(id));
 CREATE TABLE players (username varchar(15), xuid varchar(20));
-CREATE TABLE servers (id int NOT NULL, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, PRIMARY KEY(id));
-INSERT INTO users (username, password, perm, globalpermissions) VALUES ('admin', '<md5 hash of password acquired from script above'>, 255);
-INSERT INTO servers (path, allowedusers, description, version, autostart) VALUES ('<path/to/server/folder>', '{ "1": 255 }', 'My first server'. '1.16.200', true);
+CREATE TABLE servers (id int NOT NULL AUTO_INCREMENT, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, type varchar(15), PRIMARY KEY(id));
+INSERT INTO users (username, password, perm, globalpermissions) VALUES ('admin', '<md5 hash of password acquired from script above>', 'Superadmin', 255);
+```
+
+Setup `config.json`:
+
+```json
+{
+    "db": {
+        "user": "bsm",
+        "password": "<yourpassword>",
+        "host": "localhost",
+        "database": "bsm",
+        "software": "mysql"
+    },
+    "basePath": "C:\\path\\to\\basePath",
+    "bdsDownloads": "C:\\path\\to\\basePath\\bdsDownloads"
+}
 ```
 
 ## Run
@@ -26,6 +43,4 @@ INSERT INTO servers (path, allowedusers, description, version, autostart) VALUES
 ```sh
 node index.js
 ```
-
-`localhost:3000`
 
