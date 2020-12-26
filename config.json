@@ -1,0 +1,11 @@
+{
+    "db": {
+        "user": "bsm",
+        "password": "<yourpassword>",
+        "host": "localhost",
+        "database": "bsm",
+        "software": "mysql"
+    },
+    "basePath": "/path/to/basePath",
+    "bdsDownloads": "/path/to/basePath/bdsDownloads"
+}
