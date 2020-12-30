@@ -16,6 +16,7 @@ CREATE DATABASE bsm;
 USE bsm;
 CREATE USER 'bsm'@'localhost' IDENTIFIED WITH mysql_native_password BY '<yourpassword>';
 GRANT ALL PRIVILEGES ON bsm.* TO 'bsm'@'localhost';
+-- The following is no longer necessary-- will be done automatically
 CREATE TABLE users (id int NOT NULL AUTO_INCREMENT, username varchar(20) NOT NULL, password char(32) NOT NULL, perm varchar(20), globalpermissions smallint, PRIMARY KEY(id));
 CREATE TABLE players (username varchar(15), xuid varchar(20));
 CREATE TABLE servers (id int NOT NULL AUTO_INCREMENT, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, type varchar(15), PRIMARY KEY(id));

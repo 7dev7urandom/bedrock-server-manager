@@ -94,7 +94,7 @@ export class BServer {
     }
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, command: string, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
-        BServer.initTotalServers--;
+        if(!BServer.isLaunched) BServer.initTotalServers--;
         this.command = command;
         this.properties = properties;
         this.id = id;
@@ -302,6 +302,7 @@ export class BServer {
             const xuid = regex[2];
             if(!Player.xuidToPlayer.get(xuid)) {
                 new Player(username, xuid, true);
+                this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
             }
             this.onlinePlayers.add(Player.xuidToPlayer.get(xuid));
             this.clobberAll();
@@ -443,6 +444,7 @@ export class BServer {
             const tmpData = Object.assign({}, data);
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PERMISSIONS)) tmpData.allowedUsers = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_USE_CONSOLE)) tmpData.consoleAppend = undefined;
+            if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PROPERTIES)) tmpData.permissions = undefined;
             
             if(userdata.selectedServer == this.id) {
                 // console.log("Sending to user id " + userdata.id + " data " + data.status);
@@ -575,6 +577,11 @@ export class BServer {
         })
         // Server.io.emit('clobberAll', data);
     }
+    delete() {
+        // FIXME: Not implemented
+    }
+    // Override in subclasses
+    updateCommand() {}
 }
 export class LocalPermissions {
     static readonly CAN_VIEW             = 0b0000000001;

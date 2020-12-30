@@ -47,6 +47,7 @@ interface createServer {
     description: string;
     version: string;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
+    progressBarId: string;
 }
 
 // Use changeProperty
@@ -118,7 +119,18 @@ interface serverUpdate {
     allowedUsers?: userPermissionData[];
     controls19132?: boolean;
     output?: string;
+    permissions?: BPermission[];
 }
+
+interface progressBar {
+    id: string;
+    text: string;
+    progress: number;
+}
+interface progressBarFinished {
+    id: string;
+}
+
 interface clobberAll {
     server: MinimalBServer;
 }
@@ -142,6 +154,10 @@ interface fullServerSend {
     allowedUsers?: userPermissionData[];
     currentWorld: string;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
+}
+
+interface serverDeleted {
+    serverId: number;
 }
 
 interface refreshDB {}

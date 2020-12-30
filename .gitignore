@@ -6,3 +6,4 @@ settings.json
 browser/
 servers/
 bedrock-server-manager-client/
+out/linecount.*

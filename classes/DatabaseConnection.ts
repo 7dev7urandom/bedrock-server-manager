@@ -1,5 +1,3 @@
-import { timeStamp } from "console";
-
 const postgredb = require('pg');
 const mysqldb = require('mysql');
 // const DB = ['servers', 'users', 'worlds'];
@@ -41,7 +39,7 @@ export default class DatabaseConnection {
             }
         })
     }
-    static async query(object) {
+    static async query(object): Promise<{ rows: any[] }> {
         // console.log("Database query " + object.text + " with values " + JSON.stringify(object.values));
         if(this.type === 'postgresql')
             return await this.connection.query(object);
@@ -77,7 +75,7 @@ export default class DatabaseConnection {
                         rej(err);
                         return;
                     }
-                    console.log(JSON.stringify(res));
+                    // console.log(JSON.stringify(res));
                     r(res.insertId);
                 });
             });

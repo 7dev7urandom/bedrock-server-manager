@@ -3,6 +3,7 @@ import { Socket, Server as socketServer } from 'socket.io';
 import * as socketio from 'socket.io';
 import { readFile } from 'fs';
 import { unescape } from 'querystring';
+import { config } from './Constants';
 
 export type userIdNum = number;
 
@@ -16,20 +17,23 @@ export interface UserData {
     username: string;
     globalPermissions: number;
     selectedServer: number | null;
+    password: string;
 }
 export class GlobalPermissions {
-    static readonly CAN_CREATE_SERVER =     0b00000001;
-    static readonly CAN_DELETE_SERVER =     0b00000010;
-    static readonly CAN_GRANT_PERMISSIONS = 0b00000100;
-    static readonly CAN_OVERRIDE_LOCAL =    0b00001000;
-    static readonly CAN_REFRESH_DB =        0b00010000;
+    static readonly CAN_CREATE_SERVER =      0b00000001;
+    static readonly CAN_DELETE_SERVER =      0b00000010;
+    static readonly CAN_GRANT_PERMISSIONS =  0b00000100;
+    static readonly CAN_OVERRIDE_LOCAL =     0b00001000;
+    static readonly CAN_REFRESH_DB =         0b00010000;
+    static readonly CAN_MANAGE_OTHER_USERS = 0b00100000;
 
-    // static readonly CAN_X =   0b00010000;
+    // static readonly CAN_X =   0b01000000;
 }
 export class Server {
-    static PORT = 3000;
+    static PORT = config.server ? config.server.port || 3000 : 3000;
+    static HOSTNAME = config.server ? config.server.host || '0.0.0.0' : '0.0.0.0';
     static page: string;
-    static server: any;
+    static server: http.Server;
     static io: socketServer;
     static listeners: Map<string, SocketListener[]> = new Map<string, SocketListener[]>();
     static dataFromId: Map<userIdNum, UserData> = new Map<userIdNum, UserData>();
@@ -71,7 +75,7 @@ export class Server {
                             console.warn(`Unauthorized packet ${event} from non-logged in user with IP address ${socket.request.connection.remoteAddress}`);
                             return;
                         };
-                        console.log(`${event} from ${Server.idFromSocket.get(socket) ? Server.dataFromId.get(Server.idFromSocket.get(socket)).username : "annonymous user" }`);
+                        // console.log(`${event} from ${Server.idFromSocket.get(socket) ? Server.dataFromId.get(Server.idFromSocket.get(socket)).username : "annonymous user" }`);
                         callback(socket, data);
                     });
                 }
@@ -80,8 +84,8 @@ export class Server {
     }
     static listen() {
         
-        Server.server.listen(Server.PORT, () => {
-            console.log("Server started on port " + Server.PORT);
+        Server.server.listen(Server.PORT, Server.HOSTNAME, () => {
+            console.log("Server started on port " + Server.PORT + " and host " + Server.HOSTNAME);
         });
     }
 

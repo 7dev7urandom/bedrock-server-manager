@@ -1,10 +1,10 @@
 import { BProperties } from "./classes/BProperties";
 import BPermission from "./classes/BPermissions";
 import { parse } from 'dotenv';
-import { readFile } from 'fs';
+import { readFile, createWriteStream } from 'fs-extra';
 import { promisify } from 'util';
 import Player from "./classes/Player";
-import { pathExists } from "fs-extra";
+import request = require("request");
 
 const readFileAsync = promisify(readFile);
 
@@ -12,33 +12,6 @@ export async function propertiesFileToBProperties(filePath): Promise<BProperties
     //@ts-ignore
     return new BProperties(parse(await readFileAsync(filePath)));
 }
-//         ret = {
-//             levelType: data.levelType,
-// gamemode: data.gamemode,
-// serverName: data.serverName,
-// difficulty: data.difficulty,
-// allowCheats: data.allowCheats,
-// maxPlayers: data.maxPlayers,
-// _onlineMode: data._onlineMode,
-// whitelist: data.whitelist,
-// port: data.port,
-// port6: data.port6,
-// _viewDistance: data._viewDistance,
-// tickDistance: data.tickDistance,
-// playerIdleTimeout: data.playerIdleTimeout,
-// _maxThreads: data._maxThreads,
-// _levelName: data._levelName,
-// _$defaultPlayerPermissionLevel: data.defaultPlayerPermissionLevel,
-// _texturepackRequired: data._texturepackRequired,
-// contentLogFileEnabled: data.contentLogFileEnabled,
-// _compressionThreshold: data._compressionThreshold,
-// _serverAuthoritativeMovement: data._serverAuthoritativeMovement,
-// _playerMovementScoreThreshold: data._playerMovementScoreThreshold,
-// _playerMovementDistanceThreshold: data._playerMovementDistanceThreshold,
-// _playerMovementDurationThresholdInMs: data._playerMovementDurationThresholdInMs,
-// _correctPlayerMovement: data._correctPlayerMovement,
-// _$levelSeed: data.levelSeed
-//         }
 
 export async function permissionsFileToBPermissions(filePath): Promise<BPermission[]> {
     let filedata;
@@ -55,7 +28,28 @@ export async function permissionsFileToBPermissions(filePath): Promise<BPermissi
             permission: e.permission 
         }
     });
-    // let set: Set<BPermission> = new Set();
-    // arr.forEach(val => set.add(val));
-    // return set;
+}
+
+export async function wgetToFile(url, filepath, progressCallback?) {
+    return new Promise<void>((resolve, reject)=>{
+        const file = createWriteStream(filepath);
+        const req = request.get(url);
+        req.pipe(file).on('error', (err) => {
+            console.error(`Error getting url ${url}: ${err}`);
+        });
+        let length;
+        let currentLength = 0;
+        req.on('response', (data) => {
+            length = data.headers['content-length'];
+        })
+        req.on('data', (chunk) => {
+            currentLength += chunk.length;
+            if(progressCallback) progressCallback(currentLength * 100 / length);
+            // console.log("Data: " + chunk.length / length);
+        })
+        file.on('finish', async () => {
+            await file.close();
+            resolve();
+        });
+    });
 }
