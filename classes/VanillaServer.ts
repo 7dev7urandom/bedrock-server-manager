@@ -14,8 +14,8 @@ export class VanillaServer extends BServer {
     type: 'vanilla' = "vanilla";
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
         super(id, desc, autostart, properties, permissions, serverPath, version, allowedusers, {
-            'win32': `bedrock_server.exe`,
-            'linux': `bedrock_server`
+            'win32': [`bedrock_server.exe`],
+            'linux': [`bedrock_server`]
         }[process.platform], process.platform === 'linux' ? Object.assign(env, { 'LD_LIBRARY_PATH': "." }) : env, whitelist);
     }
     static async createNew(name: string, desc: string, version: string, creatorId: userIdNum, progressBarId: string) {
