@@ -56,7 +56,7 @@ export class BDSXServer extends BServer {
         const allowedusers = {};
         allowedusers["" + creatorId] = 255;
         const id = await DatabaseConnection.insertQueryReturnId({
-            text: "INSERT INTO servers (allowedusers, description, version, autostart, type) VALUES ($1, $2, $3, true, 'bdsx')",
+            text: "INSERT INTO servers (allowedusers, description, version, autostart, type) VALUES ($1, $2, $3, false, 'bdsx')",
             values: [JSON.stringify(allowedusers), desc, version]
         });
         // console.log("Creating");

@@ -14,15 +14,16 @@ export default class DatabaseConnection {
                 reject();
                 return;
             }
+            config.db.connectionLimit = 1;
             // config.db.software = config.db.software || 'postgresql';
             this.type = config.db.software.toLowerCase() || 'postgresql';
             if(this.type === 'mysql') {
-                this.connection = mysqldb.createConnection(config.db);
-                this.connection.connect((err) => {
-                    if (err) throw err;
-                    // console.log("DB connected successfully");
-                    resolve();
-                })
+                this.connection = mysqldb.createPool(config.db);
+                // this.connection.connect((err) => {
+                //     if (err) throw err;
+                //     // console.log("DB connected successfully");
+                resolve();
+                // })
             } else if (this.type === "postgresql") {
                 this.connection = new postgredb.Client(config.db);
                 this.connection.connect()

@@ -52,6 +52,7 @@ export default class Database {
         await this.verifyTables();
         // const servers: Map<number, BServer> = new Map();
         const proms = [];
+        const serversArrProms = [];
         proms.push(DatabaseConnection.query({
             // rowMode: 'array',
             text: 'SELECT * FROM servers',
@@ -64,14 +65,13 @@ export default class Database {
                     let allowedUsers = DatabaseConnection.type == 'mysql' ? JSON.parse(server.allowedusers) : server.allowedusers;
                     switch (server.type) {
                         case 'vanilla':
-                            // @ts-ignore
                             servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, allowedUsers));
                             break;
                         case 'bdsx':
-                            // @ts-ignore
                             servers.set(server.id, new BDSXServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, allowedUsers));
                             break;
                     }
+                    serversArrProms.push(servers.get(server.id).queryCreated());
                 });
             });
         }));
@@ -97,6 +97,7 @@ export default class Database {
             })
         }));
         await Promise.all(proms);
+        Promise.all(serversArrProms).then(() => BServer.startQueuedServers());
         return servers;
     }
     static generateRandomString(length: number) {

@@ -66,6 +66,7 @@ export class BServer {
     expectLine: ((data: string) => void)[] = [];
     backupResolve: CallableFunction;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
+    createdResolve: CallableFunction;
 
     command: string;
     // #region test
@@ -111,7 +112,9 @@ export class BServer {
         this.properties["server-portv6"] = 65000 + this.id;
         this.properties.commit(path.join(this.path, 'server.properties'));
         // this.getData().then(() => {
-        if(this.autostart) this.start();
+        if(this.autostart) {
+            this.start().then(() => this.queryCreated());
+        }
         // });
         // console.log(mapEntriesToString(allowedusers));
         for (let user in allowedusers) {
@@ -428,7 +431,7 @@ export class BServer {
     static startQueuedServers() {
         // console.trace("startQueuedServers says I");
         BServer.isLaunched = true;
-        // console.log("3c");
+        console.log("Starting queued servers");
         BServer.queuedServers.forEach(server => {
             // console.log("3 1");
             server.start();
@@ -582,6 +585,11 @@ export class BServer {
     }
     // Override in subclasses
     updateCommand() {}
+    async queryCreated() {
+        return new Promise<void>((resolve) => {
+            this.createdResolve = resolve;
+        });
+    }
 }
 export class LocalPermissions {
     static readonly CAN_VIEW             = 0b0000000001;

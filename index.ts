@@ -48,7 +48,7 @@ if(process.argv[2] == 'util') {
     }
 }
 if(process.platform == 'win32') {
-    BDSXServer.wineName = ''; // Doesn't matter, won't be used
+    BDSXServer.wineName = true; // Doesn't matter, won't be used. Must be truthy
     BDSXServer.wineNameFound();
 } else {
     console.log("Checking for wine...");
