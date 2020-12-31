@@ -71,7 +71,7 @@ export class Server {
                 for(let callback of Server.listeners.get(event)) {
                     // console.log(`Event ${event} with callback ${callback}`);
                     socket.on(event, data => {
-                        if(!Server.idFromSocket.get(socket) && event !== 'login') {
+                        if(!Server.idFromSocket.get(socket) && event !== 'login' && event !== 'disconnect') {
                             console.warn(`Unauthorized packet ${event} from non-logged in user with IP address ${socket.request.connection.remoteAddress}`);
                             return;
                         };

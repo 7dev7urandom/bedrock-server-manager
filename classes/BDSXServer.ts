@@ -15,6 +15,7 @@ export class BDSXServer extends BServer {
 
     static wineName;
     static serverQueue: BDSXServer[] = [];
+    static versionToBDSxVersion = new Map([['1.16.200.02', '1.3.48']]);
     type: 'bdsx' = "bdsx";
 
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
@@ -33,7 +34,8 @@ export class BDSXServer extends BServer {
         });
     }
     static async createNew(name: string, desc: string, version: string, creatorId: userIdNum, progressBarId: string) {
-        // FIXME: currently gets set versions of eminus and bdsx rather than querying the most recent version
+        // FIXME: currently dies if version not in map
+        if(!BDSXServer.versionToBDSxVersion.get(version)) return;
         let progresses: number[][] = [[0], [0, 0, 0], [0, 0, 0]];
         let text = "Loading...";
         // Get the socket for sending updates on creation progress. If there is no socket then our emits will do nothing but throw no error
@@ -137,12 +139,13 @@ export class BDSXServer extends BServer {
         // fs.createReadStream(path.join(config.bdsDownloads, 'eminus.zip')).pipe(unzipper.Extract({ path: sPath }));
         // download and unzip bdsx
         await fs.ensureDir(path.join(sPath, 'mods'));
-
-        if(!(await fs.pathExists(path.join(config.bdsDownloads, 'bdsx-bin.zip')))) {
+        const bdsxversion = BDSXServer.versionToBDSxVersion.get(version);
+        const bdsxfilename = `bdsx-bin-${bdsxversion}.zip`;
+        if(!(await fs.pathExists(path.join(config.bdsDownloads, bdsxfilename)))) {
             // @ts-ignore
-            const directory = await unzipper.Open.url(request,'https://github.com/karikera/bdsx/releases/download/1.3.48/bdsx-1.3.48-win.zip');
+            const directory = await unzipper.Open.url(request,`https://github.com/karikera/bdsx/releases/download/1.3.48/bdsx-${bdsxversion}-win.zip`);
             const file = directory.files.find(d => d.path === 'bdsx/node_modules/bdsx/bdsx-bin.zip');
-            const fileh = fs.createWriteStream(path.join(config.bdsDownloads, 'bdsx-bin.zip'));
+            const fileh = fs.createWriteStream(path.join(config.bdsDownloads, bdsxfilename));
             const thething = file.stream();
             // console.log("BDSx zip size: " + file.compressedSize);
             const length = file.compressedSize;
@@ -164,9 +167,9 @@ export class BDSXServer extends BServer {
         }
         // bdsx downloaded
         downloadProms[2].then(() => {
-            const stream = fs.createReadStream(path.join(config.bdsDownloads, 'bdsx-bin.zip'));
+            const stream = fs.createReadStream(path.join(config.bdsDownloads, bdsxfilename));
             let length = Infinity;
-            fs.stat(path.join(config.bdsDownloads, 'bdsx-bin.zip')).then(stat => length = stat.size);
+            fs.stat(path.join(config.bdsDownloads, bdsxfilename)).then(stat => length = stat.size);
             let currentLength = 0;
             stream.on('data', (chunk) => {
                 currentLength += chunk.length;

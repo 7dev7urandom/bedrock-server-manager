@@ -482,6 +482,7 @@ function pKill() {
     });
 }
 rl.on('SIGINT', pKill);
+process.on('SIGTERM', pKill);
 
 //catches uncaught exceptions
 process.on('uncaughtException', (err, origin) => {

@@ -194,7 +194,7 @@ export class BServer {
             }
         });
         this.proc.on('exit', async code => {
-            if(code != 0 && this.status !== 'Stopping') {
+            if(code !== 0 && this.status !== 'Stopping') {
                 // console.log("1");
                 console.error("I have literally no idea what to do right now. The server exited with an error code " + code);
                 if(BServer.controls19132 === this) {
