@@ -380,12 +380,10 @@ export class BServer {
     async saveLog(toAppend: string) {
         const pathToLog = path.join(this.path, 'logs', new Date().toDateString() + ".txt");
         // Make sure logs dir exists
-        fs.mkdir(path.join(this.path, 'logs'), parseInt('0777', 8), err => {
-            if (err && err.code != "EEXIST") throw err;
-        });
+        await fs.ensureDir(path.join(this.path, 'logs'));
         if(!toAppend) {
             fs.writeFile(pathToLog, this.output, err => {
-                if (err) throw err
+                if (err) throw err;
             });
             return;
         }
@@ -431,7 +429,7 @@ export class BServer {
     static startQueuedServers() {
         // console.trace("startQueuedServers says I");
         BServer.isLaunched = true;
-        console.log("Starting queued servers");
+        // console.log("Starting queued servers");
         BServer.queuedServers.forEach(server => {
             // console.log("3 1");
             server.start();
