@@ -12,11 +12,11 @@ import * as unzipper from 'unzipper';
 export class VanillaServer extends BServer {
 
     type: 'vanilla' = "vanilla";
-    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
         super(id, desc, autostart, properties, permissions, serverPath, version, allowedusers, {
             'win32': `bedrock_server.exe`,
-            'linux': `LD_LIBRARY_PATH=. ./bedrock_server`
-        }[process.platform], whitelist);
+            'linux': `bedrock_server`
+        }[process.platform], process.platform === 'linux' ? Object.assign(env, { 'LD_LIBRARY_PATH': "." }) : env, whitelist);
     }
     static async createNew(name: string, desc: string, version: string, creatorId: userIdNum, progressBarId: string) {
         let progresses: number[][] = [[0], [0], [0]];

@@ -1,7 +1,7 @@
 import { BWorld } from "./BWorld";
 import BPermission from './BPermissions';
 import { BProperties } from './BProperties';
-import { ChildProcess, exec } from "child_process";
+import { ChildProcess, spawn } from "child_process";
 import { Socket } from "socket.io";
 import { Server, GlobalPermissions } from '../Server'
 import { createWorld, fullServerSend, serverUpdate } from '../packetDef';
@@ -67,8 +67,9 @@ export class BServer {
     backupResolve: CallableFunction;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
     createdResolve: CallableFunction;
-
-    command: string;
+    
+    env: any;
+    command: string[];
     // #region test
 
     // Gets all users mentioned in permissions.json and all players in db
@@ -93,9 +94,10 @@ export class BServer {
     get name() {
         return this.properties["server-name"];
     }
-    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, command: string, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, command: string[], env = {}, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
         if(!BServer.isLaunched) BServer.initTotalServers--;
+        this.env = env;
         this.command = command;
         this.properties = properties;
         this.id = id;
@@ -181,9 +183,10 @@ export class BServer {
         // }
 
         // console.log(command);
-        this.proc = exec(this.command, {
-            cwd: this.path
-        }, () => {});
+        this.proc = spawn(this.command[0], this.command.slice(1), {
+            cwd: this.path,
+            env: this.env
+        });
         this.proc.stderr.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.stdout.on('data', bytedata => {
             const data: string = bytedata.toString();
