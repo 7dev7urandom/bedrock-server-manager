@@ -20,8 +20,8 @@ export class BDSXServer extends BServer {
 
     constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, whitelist?: null) {
         super(id, desc, BDSXServer.wineName ? autostart : false, properties, permissions, serverPath, version, allowedusers, {
-            'win32': `(cd ${serverPath} & bedrock_server.exe)`,
-            'linux': `cd ${serverPath} && WINEDEBUG=-all ${BDSXServer.wineName} bedrock_server.exe`
+            'win32': `bedrock_server.exe)`,
+            'linux': `WINEDEBUG=-all ${BDSXServer.wineName} bedrock_server.exe`
         }[process.platform], whitelist);
         if(!BDSXServer.wineName && autostart) {
             this.autostart = autostart;

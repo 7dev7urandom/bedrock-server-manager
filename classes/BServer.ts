@@ -181,7 +181,9 @@ export class BServer {
         // }
 
         // console.log(command);
-        this.proc = exec(this.command);
+        this.proc = exec(this.command, {
+            cwd: this.path
+        }, () => {});
         this.proc.stderr.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.stdout.on('data', bytedata => {
             const data: string = bytedata.toString();
