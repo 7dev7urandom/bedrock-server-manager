@@ -474,10 +474,17 @@ function addListeners() {
 function pKill() {
     console.log("Servers stopping");
     const proms = [];
-    servers.forEach(s => proms.push(s.stop()));
+    try {
+        servers.forEach(s => proms.push(s.stop()));
+    } catch {
+        console.error("Error stopping servers. Ending now.");
+        process.exit();
+    }
     Promise.all(proms).then(() => {
         console.log("Exiting");
         Server.io.emit("logout");
+        process.exit();
+    }).catch(err => {
         process.exit();
     });
 }
