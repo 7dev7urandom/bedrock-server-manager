@@ -185,7 +185,7 @@ export class BServer {
         // console.log(command);
         this.proc = spawn(this.command[0], this.command.slice(1), {
             cwd: this.path,
-            env: this.env
+            env: this.env,
         });
         this.proc.stderr.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.stdout.on('data', bytedata => {
@@ -198,10 +198,10 @@ export class BServer {
                 this.pendingData = '';
             }
         });
-        this.proc.on('exit', async code => {
+        this.proc.on('exit', async (code, signal) => {
             if(code !== 0 && this.status !== 'Stopping') {
                 // console.log("1");
-                console.error("I have literally no idea what to do right now. The server exited with an error code " + code);
+                console.error(`Server id ${this.id} exited with ${code ? "an error code " : "signal "} ${ code || signal }`);
                 if(BServer.controls19132 === this) {
                     console.error("Starting other servers anyways as this 19132 server was blocking");
                     // BServer.controls19132 = undefined;
