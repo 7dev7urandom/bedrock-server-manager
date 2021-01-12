@@ -232,7 +232,6 @@ export default class Database {
         proms.push(DatabaseConnection.query({
             text: "SELECT * FROM players"
         }).then(({ rows }) => {
-            Player.players = [];
             Player.xuidToPlayer = new Map();
             Player.nameToPlayer = new Map();
             rows.forEach(player => {

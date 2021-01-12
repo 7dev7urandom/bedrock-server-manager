@@ -24,7 +24,7 @@ export async function permissionsFileToBPermissions(filePath): Promise<BPermissi
     if(!Array.isArray(json)) json = [];
     return json.map(e => { 
         return { 
-            player: Player.xuidToPlayer.get(e.xuid) || { xuid: e.xuid },
+            player: Player.xuidToPlayer.get(e.xuid) ?? { xuid: e.xuid },
             permission: e.permission 
         }
     });

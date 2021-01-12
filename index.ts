@@ -31,7 +31,7 @@ import { exec } from 'child_process';
 import Database from './classes/DatabaseImpl';
 
     
-config.bdsDownloads = config.bdsDownloads || path.join(config.basePath, 'bdsDownloads');
+config.bdsDownloads = config.bdsDownloads ?? path.join(config.basePath, 'bdsDownloads');
 /**
  * node index.js util
  * - hash <password>

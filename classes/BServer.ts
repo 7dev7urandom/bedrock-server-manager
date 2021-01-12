@@ -74,11 +74,9 @@ export class BServer {
 
     // Gets all users mentioned in permissions.json and all players in db
     get permissions() {
-        const allPlayers = Player.players;
-
         // Make a shallow copy of the map
         const perms = new Map(this.specPermissions);
-        allPlayers.forEach(p => {
+        Player.xuidToPlayer.forEach(p => {
             if(perms.get(p.xuid)) return;
             perms.set(p.xuid, { player: p, permission: "default"});
         })
@@ -143,7 +141,7 @@ export class BServer {
         } catch (e) {
             console.log("error: " + Array.from(Server.dataFromId.entries()))
         }
-        return this.allowedUsers.get(user) || 0;
+        return this.allowedUsers.get(user) ?? 0;
     }
     async start() {
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
@@ -201,7 +199,7 @@ export class BServer {
         this.proc.on('exit', async (code, signal) => {
             if(code !== 0 && this.status !== 'Stopping') {
                 // console.log("1");
-                console.error(`Server id ${this.id} exited with ${code ? "an error code " : "signal "} ${ code || signal }`);
+                console.error(`Server id ${this.id} exited with ${code ? "an error code " : "signal "} ${ code ?? signal }`);
                 if(BServer.controls19132 === this) {
                     console.error("Starting other servers anyways as this 19132 server was blocking");
                     // BServer.controls19132 = undefined;
@@ -311,6 +309,9 @@ export class BServer {
             if(!Player.xuidToPlayer.get(xuid)) {
                 new Player(username, xuid, true);
                 this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
+            } else if (!Player.xuidToPlayer.get(xuid).username) {
+                new Player(username, xuid, true);
+                this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
             }
             this.onlinePlayers.add(Player.xuidToPlayer.get(xuid));
             this.clobberAll();
@@ -320,6 +321,10 @@ export class BServer {
             const xuid = regex[2];
             if(!Player.xuidToPlayer.get(xuid)) {
                 new Player(username, xuid, true);
+                this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
+            } else if (!Player.xuidToPlayer.get(xuid).username) {
+                new Player(username, xuid, true);
+                this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
             }
             this.onlinePlayers.delete(Player.xuidToPlayer.get(xuid));
             this.clobberAll();
@@ -358,7 +363,7 @@ export class BServer {
 
         this.output += data;
         this.saveLog(data);
-        for (let callback of (this.subscriptions.get('stdout') || [])) {
+        for (let callback of (this.subscriptions.get('stdout') ?? [])) {
             callback(data, this.output);
         }
         
@@ -427,7 +432,7 @@ export class BServer {
             controls19132: this === BServer.controls19132,
             // 'level-name': this.properties['level-name'],
             description: this.description,
-            'server-name': this.properties['server-name'] || this.properties['level-name'],
+            'server-name': this.properties['server-name'] ?? this.properties['level-name'],
             currentWorld: this.currentWorld,
         };
     }
@@ -554,7 +559,7 @@ export class BServer {
         console.log(Object.getOwnPropertyNames(this.worlds).find(s => s !== name));
         if(this.currentWorld === name) {
             await this.stop();
-            this.properties["level-name"] = Object.getOwnPropertyNames(this.worlds).find(s => s !== name) || 'Bedrock level';
+            this.properties["level-name"] = Object.getOwnPropertyNames(this.worlds).find(s => s !== name) ?? 'Bedrock level';
             this.properties.commit(path.join(this.path, 'server.properties'));
             this.currentWorld = this.properties["level-name"];
         }

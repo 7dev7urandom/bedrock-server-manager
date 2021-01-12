@@ -30,8 +30,8 @@ export class GlobalPermissions {
     // static readonly CAN_X =   0b01000000;
 }
 export class Server {
-    static PORT = config.server ? config.server.port || 3000 : 3000;
-    static HOSTNAME = config.server ? config.server.host || '0.0.0.0' : '0.0.0.0';
+    static PORT = config.server ? config.server.port ?? 3000 : 3000;
+    static HOSTNAME = config.server ? config.server.host ?? '0.0.0.0' : '0.0.0.0';
     static page: string;
     static server: http.Server;
     static io: socketServer;

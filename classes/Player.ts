@@ -1,7 +1,6 @@
 import DatabaseConnection from './DatabaseConnection';
 
 export default class Player {
-    static players: Player[] = [];
     static xuidToPlayer: Map<string, Player> = new Map();
     static nameToPlayer: Map<string, Player> = new Map();
     xuid: string;
@@ -9,7 +8,6 @@ export default class Player {
     constructor(username, xuid, addToDb = false) {
         this.username = username;
         this.xuid = xuid;
-        Player.players.push(this);
         Player.xuidToPlayer.set(xuid, this);
         Player.nameToPlayer.set(username, this);
         if(addToDb) {

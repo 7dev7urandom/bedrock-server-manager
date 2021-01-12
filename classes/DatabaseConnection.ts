@@ -15,8 +15,8 @@ export default class DatabaseConnection {
                 return;
             }
             config.db.connectionLimit = 1;
-            // config.db.software = config.db.software || 'postgresql';
-            this.type = config.db.software.toLowerCase() || 'postgresql';
+            // config.db.software = config.db.software ?? 'postgresql';
+            this.type = config.db.software.toLowerCase() ?? 'postgresql';
             if(this.type === 'mysql') {
                 this.connection = mysqldb.createPool(config.db);
                 // this.connection.connect((err) => {
