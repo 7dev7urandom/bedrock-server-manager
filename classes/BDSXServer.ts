@@ -90,7 +90,7 @@ export class BDSXServer extends BServer {
             // const file = fs.createWriteStream(path.join(config.bdsDownloads, BDSzipFilename));
             // const req = https.get(`https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`, res => res.pipe(file));
             console.log(`getting https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`);
-            downloadProms.push(wgetToFile(`https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`, path.join(config.bdsDownloads, BDSzipFilename), (percent) => {
+            downloadProms.push(wgetToFile(`https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`, path.join(config.bdsDownloads, "win32-" + BDSzipFilename), (percent) => {
                 progresses[1][0] = percent * 0.45;
             }));
             console.log("done");
@@ -100,10 +100,10 @@ export class BDSXServer extends BServer {
         }
         
         downloadProms[0].then(() => {
-            const stream = fs.createReadStream(path.join(config.bdsDownloads, BDSzipFilename));
+            const stream = fs.createReadStream(path.join(config.bdsDownloads, "win32-" + BDSzipFilename));
             let length = Infinity;
             let currentLength = 0;
-            fs.stat(path.join(config.bdsDownloads, BDSzipFilename)).then(stat => length = stat.size);
+            fs.stat(path.join(config.bdsDownloads, "win32-" + BDSzipFilename)).then(stat => length = stat.size);
             stream.on('data', (chunk) => {
                 currentLength += chunk.length
                 progresses[2][0] = currentLength / length * 10;

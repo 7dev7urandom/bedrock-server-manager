@@ -76,8 +76,8 @@ export class VanillaServer extends BServer {
         // download and unzip bds
 
         if(!(await fs.pathExists(path.join(config.bdsDownloads, BDSzipFilename)))) {
-            console.log(`getting https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`);
-            await (wgetToFile(`https://minecraft.azureedge.net/bin-win/${BDSzipFilename}`, path.join(config.bdsDownloads, BDSzipFilename), (percent) => {
+            console.log(`getting https://minecraft.azureedge.net/bin-${ { 'win32': 'win', 'linux': 'linux' }[process.platform] }/${BDSzipFilename}`);
+            await (wgetToFile(`https://minecraft.azureedge.net/bin-${ { 'win32': 'win', 'linux': 'linux' }[process.platform] }/${BDSzipFilename}`, path.join(config.bdsDownloads, process.platform + "-" + BDSzipFilename), (percent) => {
                 progresses[1][0] = percent * 0.7;
             }));
             console.log("done");
@@ -85,10 +85,10 @@ export class VanillaServer extends BServer {
             progresses[1][0] = 70;
         }
         updateProgress("Unzipping files...");
-        const stream = fs.createReadStream(path.join(config.bdsDownloads, BDSzipFilename));
+        const stream = fs.createReadStream(path.join(config.bdsDownloads, process.platform + "-" + BDSzipFilename));
         let length = Infinity;
         let currentLength = 0;
-        fs.stat(path.join(config.bdsDownloads, BDSzipFilename)).then(stat => length = stat.size);
+        fs.stat(path.join(config.bdsDownloads, process.platform + "-" + BDSzipFilename)).then(stat => length = stat.size);
         stream.on('data', data => {
             currentLength += data.length;
             progresses[2][0] = currentLength / length * 25;
