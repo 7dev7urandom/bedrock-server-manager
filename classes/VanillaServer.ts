@@ -114,11 +114,12 @@ export class VanillaServer extends BServer {
     spawn() {
         if(process.platform == 'win32') {
             return new ServerProcess(exec(`bedrock_server.exe`, {
-                cwd: path.join(this.path)
+                cwd: this.path
             }));
         } else if (process.platform == 'linux') {
             return new ServerProcess(exec(`bedrock_server`, {
-                env: { "LD_LIBRARY_PATH": '.' }
+                env: { "LD_LIBRARY_PATH": '.' },
+                cwd: this.path
             }));
         }
     }
