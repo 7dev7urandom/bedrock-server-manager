@@ -252,7 +252,7 @@ export abstract class BServer {
                 this.proc.kill();
                 this.status = "Stopped";
                 this.clobberAll();
-            }, 5000);
+            }, 10000);
             this.queuedTasks.push(resolve);
         })
     }
