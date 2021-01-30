@@ -117,7 +117,7 @@ export class VanillaServer extends BServer {
                 cwd: this.path
             }));
         } else if (process.platform == 'linux') {
-            return new ServerProcess(exec(`bedrock_server`, {
+            return new ServerProcess(exec(path.join(this.path, `bedrock_server`), {
                 env: { "LD_LIBRARY_PATH": '.' },
                 cwd: this.path
             }));
