@@ -9,13 +9,13 @@ const path = require('path');
 import * as fs from 'fs-extra';
 import * as unzipper from 'unzipper';
 import * as request from 'request';
-import { exec } from 'child_process';
+import { ChildProcess, exec } from 'child_process';
 import { spawn } from 'node-pty';
 import { ServerProcess } from './ServerProcess';
 import { scripts } from '../packetDef';
 
 export const BDSXVERSION = '1.16.201.02';
-export const BDSXCOREVERSION = '1.0.0.4';
+export const BDSXCOREVERSION = '1.0.1.0';
 
 export class BDSXServer extends BServer {
 
@@ -260,13 +260,21 @@ export class BDSXServer extends BServer {
             values: [sPath, id]
         });
         updateProgress("Downloading...", 10);
-        function execInDirProm(command): Promise<void> {
+        function execInDirProm(command, stdin?): Promise<void> {
             return new Promise((r) => {
                 // console.log("Run " + command);
                 // rl.on('line', (line) => {
                 //     if(line.startsWith('ct')) r();
                 // })
-                exec(command, { cwd: sPath }).on('close', r);
+                let totalData = '';
+                const proc: ChildProcess = exec(command, { cwd: sPath });
+                proc.on('close', r).stdout.on('data', (data) => {
+                    totalData += data.toString();
+                    // console.log(JSON.stringify(totalData));
+                    if(totalData.endsWith(`it?(Y/n) `)) proc.stdin.write(`n\n`);
+                    else if (totalData.endsWith(`\n`)) totalData = '';
+                });
+                // if(stdin) proc.send(stdin);
             });
         }
         // downloads/bdsx/
@@ -293,7 +301,7 @@ export class BDSXServer extends BServer {
         await fs.copy(path.join(config.bdsDownloads, 'bdsx'), sPath);
         await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');");
         updateProgress("Installing node packages...", 30);
-        await execInDirProm(`npm i`);
+        await execInDirProm(`npm i`, 'n');
         updateProgress("Downloading BDS...", 40);
         // await execInDirProm(`node ./bdsx/installer ./bedrock_server -y`);
         {
