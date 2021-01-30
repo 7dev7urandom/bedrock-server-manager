@@ -91,7 +91,6 @@ export abstract class BServer {
     }
     constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, command: string[], env = {}, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
-        if(!BServer.isLaunched) BServer.initTotalServers--;
         this.env = env;
         this.command = command;
         this.id = id;
@@ -141,7 +140,11 @@ export abstract class BServer {
         // Start if autostart
         if(this.autostart) {
             this.start().then(() => this.queryCreated());
+        } else {
+            if(!BServer.isLaunched) BServer.initTotalServers--;
+            if(!BServer.initTotalServers) BServer.startQueuedServers();
         }
+
     }
     abstract spawn(): ServerProcess;
     getUserPermissionLevel(user: number): number {
