@@ -59,20 +59,16 @@ export default class Database {
         }).then(result => {
             BServer.initTotalServers = result.rows.length;
             result.rows.forEach(server => {
-                const propertiesPromise = propertiesFileToBProperties(path.join(server.path, "server.properties"));
-                const permissionsPromise = permissionsFileToBPermissions(path.join(server.path, "permissions.json"));
-                Promise.all([propertiesPromise, permissionsPromise]).then(([properties, permissions]) => {
                     let allowedUsers = DatabaseConnection.type == 'mysql' ? JSON.parse(server.allowedusers) : server.allowedusers;
                     switch (server.type) {
                         case 'vanilla':
-                            servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, allowedUsers));
+                            servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
                             break;
                         case 'bdsx':
-                            servers.set(server.id, new BDSXServer(server.id, server.description, server.autostart, properties, permissions, server.path, server.version, allowedUsers));
+                            servers.set(server.id, new BDSXServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
                             break;
                     }
                     serversArrProms.push(servers.get(server.id).queryCreated());
-                });
             });
         }));
         proms.push(DatabaseConnection.query({
@@ -92,7 +88,8 @@ export default class Database {
                     selectedServer: null,
                     perm: user.perm,
                     id: user.id,
-                    password: user.password
+                    password: user.password,
+                    secretString: null
                 });
             })
         }));
@@ -200,7 +197,8 @@ export default class Database {
                         password: user.password,
                         perm: user.perm,
                         globalPermissions: user.globalpermissions,
-                        selectedServer: null
+                        selectedServer: null,
+                        secretString: null
                     });
                 } else {
                     // Check differences

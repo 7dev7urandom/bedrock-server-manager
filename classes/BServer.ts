@@ -1,7 +1,6 @@
 import { BWorld } from "./BWorld";
 import BPermission from './BPermissions';
 import { BProperties } from './BProperties';
-import { ChildProcess, spawn } from "child_process";
 import { Socket } from "socket.io";
 import { Server, GlobalPermissions } from '../Server'
 import { createWorld, fullServerSend, serverUpdate } from '../packetDef';
@@ -11,12 +10,9 @@ import Player from "./Player";
 // import { clobberAll } from '../index'
 // const fs = require('fs-extra');
 import * as fs from 'fs-extra';
+import { ServerProcess } from "./ServerProcess";
 // const fsprom = require('fs').promises;
 const path = require('path');
-
-export class ServerNotFoundError extends Error {
-
-}
 
 export interface MinimalBServer {
     id: number;
@@ -30,9 +26,10 @@ export interface MinimalBServer {
     'server-name': string;
     description: string;
     currentWorld: string;
+    type: 'bdsx' | 'vanilla' | 'elementzeror';
 }
 
-export class BServer {
+export abstract class BServer {
     static is19132PortStarted: boolean = false;
     static queuedServers: BServer[] = [];
     static isLaunched: boolean = false;
@@ -49,7 +46,7 @@ export class BServer {
     maxPlayers: number;
     port: number;
     output: string = '';
-    proc: ChildProcess;
+    proc: ServerProcess;
     path: string;
     status: 'Stopped' | 'Running' | 'Starting' | 'Stopping';
     subscriptions: Map<string, CallableFunction[]> = new Map();
@@ -67,7 +64,7 @@ export class BServer {
     backupResolve: CallableFunction;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
     createdResolve: CallableFunction;
-    
+    prepQuery: CallableFunction[] = [];
     env: any;
     command: string[];
     // #region test
@@ -92,14 +89,12 @@ export class BServer {
     get name() {
         return this.properties["server-name"];
     }
-    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, command: string[], env = {}, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, command: string[], env = {}, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
         if(!BServer.isLaunched) BServer.initTotalServers--;
         this.env = env;
         this.command = command;
-        this.properties = properties;
         this.id = id;
-        this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
         this.path = serverPath;
         this.version = version;
         this.whitelist = whitelist;
@@ -107,14 +102,8 @@ export class BServer {
         this.autostart = autostart;
         // this.name = name;
         this.description = desc;
-        this.currentWorld = this.properties['level-name'];
         // console.log(this.properties);
-        this.properties["server-portv6"] = 65000 + this.id;
-        this.properties.commit(path.join(this.path, 'server.properties'));
         // this.getData().then(() => {
-        if(this.autostart) {
-            this.start().then(() => this.queryCreated());
-        }
         // });
         // console.log(mapEntriesToString(allowedusers));
         for (let user in allowedusers) {
@@ -125,7 +114,7 @@ export class BServer {
             let dirhandle;
             try {
                 const pathToWorldsFolder = path.join(this.path, 'worlds');
-                await fs.mkdir(pathToWorldsFolder).catch(() => {});
+                await fs.ensureDir(pathToWorldsFolder);
                 dirhandle = (await fs.readdir(pathToWorldsFolder, { withFileTypes: true }));
                 dirhandle.filter(dir => dir.isDirectory()).forEach(dir => {
                     this.worlds[dir.name] = (new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
@@ -133,7 +122,28 @@ export class BServer {
             }
             finally {}
         })();
+        this.prepServer().then(() => this.prepQuery.forEach(x => x()));
     }
+    async prepServer() {
+        // Get properties
+        // Get permissions
+        const [properties, permissions] = await Promise.all([
+            propertiesFileToBProperties(path.join(this.path, "server.properties")),
+            permissionsFileToBPermissions(path.join(this.path, "permissions.json"))
+        ]);
+        this.properties = properties;
+        this.currentWorld = this.properties['level-name'];
+        this.properties["server-portv6"] = 65000 + this.id;
+        await this.properties.commit(path.join(this.path, 'server.properties'));
+
+        this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
+        
+        // Start if autostart
+        if(this.autostart) {
+            this.start().then(() => this.queryCreated());
+        }
+    }
+    abstract spawn(): ServerProcess;
     getUserPermissionLevel(user: number): number {
         // console.log(mapEntriesToString(this.allowedUsers));
         try {
@@ -143,7 +153,7 @@ export class BServer {
         }
         return this.allowedUsers.get(user) ?? 0;
     }
-    async start() {
+    async start(socket?: Socket) {
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
         // console.log(this.command);
         if(this.status !== "Stopped") return;
@@ -159,6 +169,7 @@ export class BServer {
         }
         if(BServer.portsStarted.has(this.properties['server-port'])) {
             console.log("Canceling. " + Array.from(BServer.portsStarted));
+            if(socket) socket.emit("infoWindow", { msg: `Port ${this.properties['server-port']} is already running.`});
             return;
         }
         BServer.portsStarted.add(this.properties['server-port']);
@@ -181,12 +192,9 @@ export class BServer {
         // }
 
         // console.log(command);
-        this.proc = spawn(this.command[0], this.command.slice(1), {
-            cwd: this.path,
-            env: this.env,
-        });
-        this.proc.stderr.on('data', data => console.error("The server gave an error message: " + data.toString()));
-        this.proc.stdout.on('data', bytedata => {
+        this.proc = this.spawn();
+        // this.proc.on('data', data => console.error("The server gave an error message: " + data.toString()));
+        this.proc.on('data', bytedata => {
             const data: string = bytedata.toString();
             // console.log("data from server id " + this.id + ": " + data);
             // if(this.description == 'A real genuine test of the software') console.log(data);
@@ -204,36 +212,25 @@ export class BServer {
                     console.error("Starting other servers anyways as this 19132 server was blocking");
                     // BServer.controls19132 = undefined;
                     // BServer.is19132PortStarted = false;
-                    // console.log("2");
                     // BServer.startQueuedServers();
                     BServer.isLaunched = true;
                     if(BServer.queuedServers.length)
                         BServer.queuedServers.shift().start();
                 }
             }
-            // console.log("1");
             if(BServer.controls19132 === this) {
-                // console.log("2");
                 BServer.controls19132 = undefined;
                 BServer.is19132PortStarted = false;
                 BServer.portsStarted.delete(19132);
             }
-            // console.log("1");
             BServer.portsStarted.delete(this.properties['server-port']);
-            // console.log("1");
             this.status = "Stopped";
             this.specPermissions = new Map((await permissionsFileToBPermissions(path.join(this.path, "permissions.json"))).map(p => [p.player.xuid, p]));
             this.properties = await propertiesFileToBProperties(path.join(this.path, "server.properties"));
             this.currentWorld = this.properties['level-name'];
-            // console.log("1");
             this.clobberWorld({ status: this.status, currentWorld: this.currentWorld, properties: this.properties });
-            // console.log("1");
             this.clobberAll();
-            // console.log("1");
             clearTimeout(this.stopTimer);
-            // console.log("Stopped, running queued tasks: ", this.queuedTasks);
-            // Wait a little bit before running queuedTasks so the server can confirm stopped before doing anything else
-            // setTimeout(() => this.queuedTasks.forEach(c => c()), 10);
             this.queuedTasks.forEach(c => c());
             this.queuedTasks = [];
         });
@@ -246,10 +243,6 @@ export class BServer {
             };
             this.sendData("stop");
             this.status = "Stopping";
-            // if(BServer.controls19132 == this) {
-            //     BServer.is19132PortStarted = false;
-            //     BServer.controls19132 = undefined;
-            // }
     
             this.clobberAll();
             this.stopTimer = setTimeout(() => {
@@ -274,7 +267,7 @@ export class BServer {
         // if(this.description == 'A real genuine test of the software') console.log(data);
         if (data.includes("Running AutoCompaction..."))
             return;
-        if(this.status === "Starting" && data.trim().endsWith("INFO] Server started."))  {
+        if(this.status === "Starting" && data.trim().includes("INFO] Server started."))  {
             if(BServer.controls19132 === this) {
                 // console.log("Starting queued servers " + JSON.stringify(BServer.queuedServers) + " ports: " + Array.from(BServer.portsStarted));
                 BServer.is19132PortStarted = true;
@@ -382,7 +375,7 @@ export class BServer {
         });
     }
     sendData(data, suffix="\n") {
-        this.proc.stdin.write(data + suffix);
+        this.proc.write(data + suffix);
         this.output += data + suffix;
         this.clobberWorld({ consoleAppend: data + suffix });
         this.saveLog("> " + data + suffix);
@@ -434,6 +427,7 @@ export class BServer {
             description: this.description,
             'server-name': this.properties['server-name'] ?? this.properties['level-name'],
             currentWorld: this.currentWorld,
+            type: this.type
         };
     }
     static startQueuedServers() {
@@ -456,6 +450,7 @@ export class BServer {
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PERMISSIONS)) tmpData.allowedUsers = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_USE_CONSOLE)) tmpData.consoleAppend = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PROPERTIES)) tmpData.permissions = undefined;
+            if(!(userdata.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) tmpData.scripts = undefined;
             
             if(userdata.selectedServer == this.id) {
                 // console.log("Sending to user id " + userdata.id + " data " + data.status);
@@ -463,11 +458,9 @@ export class BServer {
             }
         })
     }
+    abstract specials(): any;
 // #endregion
     sendAll(socket: Socket) {
-        // Bad. Send only allowed data
-        // Server.io.to("sId" + this.id).emit('fullServerSend', this);
-
         // Get the userId so we can test for permissions
         const userId = Server.idFromSocket.get(socket);
         const permLevel = this.getUserPermissionLevel(userId);
@@ -478,7 +471,6 @@ export class BServer {
         let allowedUsers2 = [];
         // Don't do allowedUsers inline because there are several steps
         if(permLevel & LocalPermissions.CAN_EDIT_PERMISSIONS) {
-            // console.log("Server dataFromId: ", obj);
             const done = new Set();
             // Add specific permissions
             this.allowedUsers.forEach((val, key) => {
@@ -523,7 +515,8 @@ export class BServer {
             allowedUsers: allowedUsers2,
             autostart: this.autostart,
             currentWorld: this.currentWorld,
-            type: this.type
+            type: this.type,
+            scripts: Server.dataFromId.get(userId).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? (this.specials() ?? {}).scripts : undefined
         };
         socket.emit("fullServerSend", serverData);
     }
@@ -591,8 +584,7 @@ export class BServer {
     delete() {
         // FIXME: Not implemented
     }
-    // Override in subclasses
-    updateCommand() {}
+    abstract updateCommand(): void;
     async queryCreated() {
         return new Promise<void>((resolve) => {
             this.createdResolve = resolve;

@@ -8,12 +8,14 @@ import DatabaseConnection from './DatabaseConnection';
 import * as fs from 'fs-extra';
 import { Server, userIdNum } from '../Server';
 import * as unzipper from 'unzipper';
+import { exec } from 'child_process';
+import { ServerProcess } from './ServerProcess';
 
 export class VanillaServer extends BServer {
 
     type: 'vanilla' = "vanilla";
-    constructor(id: number, desc: string, autostart: boolean, properties: BProperties, permissions: BPermission[], serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
-        super(id, desc, autostart, properties, permissions, serverPath, version, allowedusers, {
+    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
+        super(id, desc, autostart, serverPath, version, allowedusers, {
             'win32': [path.join(serverPath, `bedrock_server.exe`)],
             'linux': [path.join(serverPath, `bedrock_server`)]
         }[process.platform], process.platform === 'linux' ? Object.assign(env, { 'LD_LIBRARY_PATH': "." }) : env, whitelist);
@@ -75,7 +77,7 @@ export class VanillaServer extends BServer {
 
         // download and unzip bds
 
-        if(!(await fs.pathExists(path.join(config.bdsDownloads, BDSzipFilename)))) {
+        if(!(await fs.pathExists(path.join(config.bdsDownloads, process.platform + "-" + BDSzipFilename)))) {
             console.log(`getting https://minecraft.azureedge.net/bin-${ { 'win32': 'win', 'linux': 'linux' }[process.platform] }/${BDSzipFilename}`);
             await (wgetToFile(`https://minecraft.azureedge.net/bin-${ { 'win32': 'win', 'linux': 'linux' }[process.platform] }/${BDSzipFilename}`, path.join(config.bdsDownloads, process.platform + "-" + BDSzipFilename), (percent) => {
                 progresses[1][0] = percent * 0.7;
@@ -96,7 +98,8 @@ export class VanillaServer extends BServer {
         await stream.pipe(unzipper.Extract({ path: sPath })).promise();
         updateProgress("Creating server...", 100);
         clearInterval(timeout);
-        const serverObj = new VanillaServer(id, desc, false, new BProperties(), [], sPath, version, allowedusers);
+        const serverObj = new VanillaServer(id, desc, false, sPath, version, allowedusers);
+        await new Promise(r => serverObj.prepQuery.push(r));
         serverObj.properties['server-name'] = name;
         await serverObj.properties.commit(path.join(serverObj.path, 'server.properties'));
         socket.emit("progressBarFinished", { id: progressBarId });
@@ -108,4 +111,16 @@ export class VanillaServer extends BServer {
             'linux': `cd ${this.path} && LD_LIBRARY_PATH=. ./bedrock_server`
         }[process.platform];
     }
+    spawn() {
+        if(process.platform == 'win32') {
+            return new ServerProcess(exec(`bedrock_server.exe`, {
+                cwd: path.join(this.path)
+            }));
+        } else if (process.platform == 'linux') {
+            return new ServerProcess(exec(`bedrock_server`, {
+                env: { "LD_LIBRARY_PATH": '.' }
+            }));
+        }
+    }
+    specials() {}
 }

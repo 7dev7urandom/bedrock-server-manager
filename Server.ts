@@ -4,6 +4,10 @@ import * as socketio from 'socket.io';
 import { readFile } from 'fs';
 import { unescape } from 'querystring';
 import { config } from './Constants';
+import formidable = require('formidable');
+import { servers } from './index';
+import { LocalPermissions } from './classes/BServer';
+import { BDSXServer } from './classes/BDSXServer';
 
 export type userIdNum = number;
 
@@ -17,6 +21,7 @@ export interface UserData {
     username: string;
     globalPermissions: number;
     selectedServer: number | null;
+    secretString: string | null;
     password: string;
 }
 export class GlobalPermissions {
@@ -26,6 +31,7 @@ export class GlobalPermissions {
     static readonly CAN_OVERRIDE_LOCAL =     0b00001000;
     static readonly CAN_REFRESH_DB =         0b00010000;
     static readonly CAN_MANAGE_OTHER_USERS = 0b00100000;
+    static readonly CAN_MANAGE_SCRIPTS =     0b01000000;
 
     // static readonly CAN_X =   0b01000000;
 }
@@ -43,6 +49,27 @@ export class Server {
         Server.page = page;
         Server.server = http.createServer((req, res) => {
             let url = unescape(req.url);
+            if(req.method.toLowerCase() === 'post' && url === '/upload') {
+                const form = new formidable.IncomingForm();
+                form.parse(req, async (err, fields, files) => {
+                    // res.end(JSON.stringify({ fields, files }));
+                    // res.end(JSON.stringify({ success: false }));
+                    if(err) console.error(err);
+                    if(!fields.secretString || !fields.serverId) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    const data = Array.from(this.dataFromId.entries()).find(([ id, data ]) => data.secretString === fields.secretString)[1];
+                    const server = servers.get(parseInt(fields.serverId as string));
+                    if(!server) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    if(!(data.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    const fileses: any = files.zipFile;
+                    if(!(fileses).size) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    if(fileses.type !== "application/x-zip-compressed") return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    if(server.type !== 'bdsx') return res.end(JSON.stringify({ message: { fields, files }, success: false }));
+                    
+                    await (server as BDSXServer).uploadScriptZip(fileses.path, data.socket);
+                    res.end(JSON.stringify({ success: true }));
+                });
+                return;
+            }
             switch(url) {
                 case '/':
                     url = '/index.html'

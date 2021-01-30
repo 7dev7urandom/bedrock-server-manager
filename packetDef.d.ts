@@ -108,6 +108,21 @@ interface serverCopyResponse {
     success: boolean;
     reason?: string;
 }
+
+interface scripts {
+    uploadedTime?: number | boolean;
+    uploadedAuthor?: string;
+    repo?: string;
+}
+interface uploadGitRepo {
+    serverId: number;
+    repo: string;
+}
+
+interface updateGit {
+    serverId: number;
+}
+
 interface serverUpdate {
     id?: number;
     consoleAppend?: string;
@@ -120,6 +135,7 @@ interface serverUpdate {
     controls19132?: boolean;
     output?: string;
     permissions?: BPermission[];
+    scripts?: scripts;
 }
 
 interface progressBar {
@@ -154,6 +170,7 @@ interface fullServerSend {
     allowedUsers?: userPermissionData[];
     currentWorld: string;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
+    scripts?: scripts;
 }
 
 interface serverDeleted {
@@ -191,3 +208,15 @@ interface userPermissionData {
 }
 
 // Not implemented
+
+interface infoWindow {
+    msg: string;
+}
+
+interface uploadScriptZip {
+    serverId: number;
+    data: string;
+    size: number;
+}
+
+interface scriptZipUploaded {}

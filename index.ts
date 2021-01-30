@@ -20,7 +20,9 @@ import {
     copyWorld,
     serverCopyResponse,
     deleteWorld,
-    createServer
+    createServer,
+    uploadScriptZip,
+    uploadGitRepo
 } from './packetDef';
 import { BProperties } from './classes/BProperties';
 import Player from './classes/Player';
@@ -59,7 +61,7 @@ if(process.platform == 'win32') {
     });
 }
 
-const rl = createInterface({
+export const rl = createInterface({
     input: process.stdin,
     output: process.stdout
 });
@@ -97,23 +99,29 @@ function addListeners() {
         if(!dataIn.username || !dataIn.password) {
             console.log(`Invalid packet login`);
         };
-        const data = Array.from(Server.dataFromId.values()).find(user => user.username === dataIn.username && user.password === createHash('md5').update(dataIn.password).digest('hex'));
+        const data = Array.from(Server.dataFromId.values()).find(user => 
+            user.username === dataIn.username
+            && user.password === createHash('md5').update(dataIn.password).digest('hex')
+        );
         if(!data) {
             socket.emit("loginResult", { success: false });
             return;
         }
+        const secStr = Database.generateRandomString(10);
         socket.emit("loginResult", {
             success: true,
             id: data.id,
             perm: data.perm,
             username: data.username,
             globalPermissions: data.globalPermissions,
+            secretString: secStr
         });
         if(data.socket) {
             data.socket.emit("logout");
             Server.idFromSocket.delete(data.socket);
         }
         data.socket = socket;
+        data.secretString = secStr;
 
         Server.dataFromId.set(data.id, data);
         Server.idFromSocket.set(socket, data.id);
@@ -151,6 +159,7 @@ function addListeners() {
         let data = Server.dataFromId.get(id);
         data.selectedServer = null;
         data.socket = null;
+        data.secretString = null;
         Server.dataFromId.set(data.id, data);
         Server.idFromSocket.delete(socket);
     });
@@ -325,7 +334,7 @@ function addListeners() {
             return;
         };
 
-        if(data.status == 'Start') server.start();
+        if(data.status == 'Start') server.start(socket);
         if(data.status == 'Stop') server.stop();
     });
     Server.addListener("createWorld", (socket, data: createWorld) => {
@@ -466,7 +475,40 @@ function addListeners() {
                 console.log("Unrecognized createServer type " + type + " from (verified) user " + Server.dataFromId.get(id).username + ". Ignoring.");
                 break;
         }
-    })
+    });
+    // Server.addListener('uploadScriptZip', (socket, { serverId, data, size }: uploadScriptZip) => {
+    //     const server = this.servers.get(serverId) as BDSXServer;
+    //     if(!(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_USE_CONSOLE)) return;
+    //     if(server.type !== 'bdsx') return;
+    //     if(!server.zipsUploading.has(socket)) {
+    //         if(data.length === size) {
+    //             server.uploadScriptZip(socket);
+    //             return;
+    //         }
+    //         server.zipsUploading.set(socket, {
+    //             socket,
+    //             data,
+    //             size
+    //         });
+    //     } else {
+    //         const zipUploading = server.zipsUploading.get(socket);
+    //         zipUploading.data += data;
+    //         if(zipUploading.data.length === zipUploading.size) server.uploadScriptZip(socket);
+    //     }
+    // });
+    Server.addListener("uploadGitRepo", (socket, { serverId, repo }: uploadGitRepo) => {
+        const server = servers.get(serverId) as BDSXServer;
+        if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
+        if(server.type !== 'bdsx') return;
+        server.scripts.repo = repo;
+        server.updateGitRepoScripts(socket, true);
+    });
+    Server.addListener("updateGit", (socket, { serverId }) => {
+        const server = servers.get(serverId) as BDSXServer;
+        if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
+        if(server.type !== 'bdsx') return;
+        server.updateGitRepoScripts(socket, false);
+    });
     // Server.addListener("")
 }
 
