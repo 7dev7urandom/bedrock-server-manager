@@ -207,11 +207,11 @@ function addListeners() {
             server.properties.commit(path.join(server.path, 'server.properties'));
             if(description) {
                 server.description = description;
-                DatabaseConnection.query({
-                    text: `UPDATE servers SET description = $1 where id = $2`,
-                    values: [description, server.id]
-                });
             }
+            DatabaseConnection.query({
+                text: `UPDATE servers SET description = $1, autostart = $2 where id = $3`,
+                values: [description, server.autostart, server.id]
+            });
             if(server.status === 'Running') {
                 server.clobberWorld({ properties: server.propertiesFull, description: description });
             } else {
