@@ -138,10 +138,10 @@ export abstract class BServer {
         this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
         
         // Start if autostart
+        if(!BServer.isLaunched) BServer.initTotalServers--;
         if(this.autostart) {
             this.start().then(() => this.queryCreated());
         } else {
-            if(!BServer.isLaunched) BServer.initTotalServers--;
             if(!BServer.initTotalServers) BServer.startQueuedServers();
         }
 
