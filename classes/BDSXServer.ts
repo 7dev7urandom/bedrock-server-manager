@@ -34,6 +34,7 @@ export class BDSXServer extends BServer {
         this.mainPath = serverPath;
         (async () => {
             await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
+            // || not ?? because empty string should be considered falsey
             this.scripts = JSON.parse((await fs.readFile(path.join(this.mainPath, 'scriptInfo.json'))).toString() || 'null') ?? {
                 uploadedTime: false
             };
@@ -362,7 +363,9 @@ export class BDSXServer extends BServer {
         await (await unzipper.Open.file(filepath)).extract({
             path: path.join(this.mainPath, 'example_and_test')
         });
-
+        exec(`npm run build`, {
+            cwd: this.mainPath
+        });
         socket.emit(`scriptZipUploaded`);
         this.scripts.uploadedAuthor = Server.dataFromId.get(Server.idFromSocket.get(socket)).username;
         this.scripts.uploadedTime = Date.now();
@@ -384,6 +387,9 @@ export class BDSXServer extends BServer {
                 cwd: path.join(this.mainPath, 'example_and_test')
             }).on('close', x => r(x))));
         }
+        exec(`npm run build`, {
+            cwd: this.mainPath
+        });
         this.scripts.uploadedTime = Date.now();
         this.scripts.uploadedAuthor = Server.dataFromId.get(Server.idFromSocket.get(socket)).username;
 

@@ -240,6 +240,8 @@ export abstract class BServer {
         this.clobberAll();
     }
     stop(): Promise<void> {
+        this.onlinePlayers = new Set();
+        this.clobberAll();
         return new Promise(resolve => {
             if(this.status === 'Stopped') {
                 return resolve();
