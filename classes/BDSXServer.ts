@@ -51,7 +51,9 @@ export class BDSXServer extends BServer {
             });
             return new ServerProcess(proc);
         } else if (process.platform == 'linux') {
-            return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {}));
+            return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {
+                cwd: this.path
+            }));
         }
     }
     static wineNameFound() {
