@@ -199,11 +199,15 @@ export abstract class BServer {
         // this.proc.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.on('data', bytedata => {
             let data: string = bytedata.toString();
-            if(data.includes('\b')) data = data.replace(/.*\u0008/, '');
             // console.log("data from server id " + this.id + ": " + data);
             // if(this.description == 'A real genuine test of the software') console.log(data);
             this.pendingData += data;
             if(this.pendingData.endsWith("\n")) {
+                if(this.pendingData.includes('\b')) {
+                    // Fix for IPty instances that repeat the input with backspaces characters every char
+                    this.pendingData = '';
+                    return;
+                }
                 this.recvData(this.pendingData);
                 this.pendingData = '';
             }
