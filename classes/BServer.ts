@@ -198,7 +198,8 @@ export abstract class BServer {
         this.proc = this.spawn();
         // this.proc.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.on('data', bytedata => {
-            const data: string = bytedata.toString();
+            let data: string = bytedata.toString();
+            if(data.includes('\b')) data = data.replace(/.*\u0008/, '');
             // console.log("data from server id " + this.id + ": " + data);
             // if(this.description == 'A real genuine test of the software') console.log(data);
             this.pendingData += data;
