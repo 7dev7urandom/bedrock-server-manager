@@ -23,8 +23,9 @@ export class ServerProcess {
                 // IPty
                 const procNew: IPty = this.proc;
                 procNew.onData((str) => {
-                    console.log(Buffer.from(str.toString()).toString('base64'));
-                    listener(str);
+                    const data = str.replace(/\r\r\n\u001b\[\?25h/g, '\n'); // Fix a complex newline escape sequence for IPty
+                    console.log(Buffer.from(data.toString()).toString('base64'));
+                    listener(data);
                 });
             } else {
                 // ChildProcess
