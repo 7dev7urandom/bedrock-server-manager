@@ -10,7 +10,7 @@ export class ServerProcess {
     }
     write(input: string) {
         if(this.proc.write) {
-            this.proc.write(input + "\r\n");
+            this.proc.write(input + "\r");
         } else {
             this.proc.stdin.write(input + "\n");
         }

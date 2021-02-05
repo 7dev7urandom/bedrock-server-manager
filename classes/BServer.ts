@@ -384,9 +384,13 @@ export abstract class BServer {
     }
     sendData(data) {
         this.proc.write(data);
-        this.output += data + '\n';
-        this.clobberWorld({ consoleAppend: data + '\n' });
-        this.saveLog("> " + data + '\n');
+        if(this.proc.proc.write) {
+            // IPty instance, saving the input will be handled on the other end
+        } else {
+            this.output += data + '\n';
+            this.clobberWorld({ consoleAppend: data + '\n' });
+            this.saveLog("> " + data + '\n');
+        }
     }
     async saveLog(toAppend: string) {
         const pathToLog = path.join(this.path, 'logs', new Date().toDateString() + ".txt");
