@@ -23,7 +23,7 @@ export class ServerProcess {
                 // IPty
                 const procNew: IPty = this.proc;
                 procNew.onData((str) => {
-                    console.log(str);
+                    console.log(Buffer.from(str.toString()).toString('base64'));
                     listener(str);
                 });
             } else {
