@@ -382,11 +382,11 @@ export abstract class BServer {
             if(err) throw err;
         });
     }
-    sendData(data, suffix="\n") {
-        this.proc.write(data + suffix);
-        this.output += data + suffix;
-        this.clobberWorld({ consoleAppend: data + suffix });
-        this.saveLog("> " + data + suffix);
+    sendData(data) {
+        this.proc.write(data);
+        this.output += data + '\n';
+        this.clobberWorld({ consoleAppend: data + '\n' });
+        this.saveLog("> " + data + '\n');
     }
     async saveLog(toAppend: string) {
         const pathToLog = path.join(this.path, 'logs', new Date().toDateString() + ".txt");

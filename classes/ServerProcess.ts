@@ -10,9 +10,9 @@ export class ServerProcess {
     }
     write(input: string) {
         if(this.proc.write) {
-            this.proc.write(input);
+            this.proc.write(input + "\r\n");
         } else {
-            this.proc.stdin.write(input);
+            this.proc.stdin.write(input + "\n");
         }
     }
     on(event: 'data', listener: (data: string) => void): void;
