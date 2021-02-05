@@ -22,7 +22,10 @@ export class ServerProcess {
             if (this.proc.onData) {
                 // IPty
                 const procNew: IPty = this.proc;
-                procNew.onData(listener);
+                procNew.onData((str) => {
+                    console.log(str);
+                    listener(str);
+                });
             } else {
                 // ChildProcess
                 const procNew: ChildProcess = this.proc;

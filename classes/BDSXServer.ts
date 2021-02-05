@@ -51,7 +51,8 @@ export class BDSXServer extends BServer {
             // IPty spawn
             return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {
                 cwd: this.path,
-                env: Object.assign({}, process.env, { WINEDEBUG: '-all' })
+                env: Object.assign({}, process.env, { WINEDEBUG: '-all' }),
+                cols: 200
             }));
         }
     }
