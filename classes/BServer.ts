@@ -89,10 +89,8 @@ export abstract class BServer {
     get name() {
         return this.properties["server-name"];
     }
-    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, command: string[], env = {}, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, whitelist?: null) {
         // console.log("Starting server " + properties["server-name"]);
-        this.env = env;
-        this.command = command;
         this.id = id;
         this.path = serverPath;
         this.version = version;
@@ -176,7 +174,7 @@ export abstract class BServer {
             return;
         }
         BServer.portsStarted.add(this.properties['server-port']);
-        if(!BServer.is19132PortStarted) {
+        if(!BServer.controls19132) {
             // BServer.is19132PortStarted = true;
             BServer.controls19132 = this;
             BServer.portsStarted.add(19132);

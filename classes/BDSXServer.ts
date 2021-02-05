@@ -27,10 +27,7 @@ export class BDSXServer extends BServer {
     scripts: scripts = {};
 
     constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
-        super(id, desc, BDSXServer.wineName ? autostart : false, path.join(serverPath, 'bedrock_server'), version, allowedusers, {
-            'win32': [`bedrock_server.exe`],
-            'linux': [BDSXServer.wineName, `bedrock_server.exe`]
-        }[process.platform], process.platform === 'linux' ? Object.assign(env, { 'WINEDEBUG': "-all" }) : env, whitelist);
+        super(id, desc, BDSXServer.wineName ? autostart : false, path.join(serverPath, 'bedrock_server'), version, allowedusers, whitelist);
         this.mainPath = serverPath;
         (async () => {
             await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
@@ -51,6 +48,7 @@ export class BDSXServer extends BServer {
             });
             return new ServerProcess(proc);
         } else if (process.platform == 'linux') {
+            // IPty spawn
             return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {
                 cwd: this.path,
                 env: { "WINEDEBUG": "-all" }
