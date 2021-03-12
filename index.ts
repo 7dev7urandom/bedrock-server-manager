@@ -465,7 +465,7 @@ function addListeners() {
         let server;
         switch(type) {
             case 'bdsx':
-                server = await BDSXServer.createNew(name, description, version, id, progressBarId);
+                server = await BDSXServer.createNew(name, description, id, progressBarId);
                 servers.set(server.id, server);
                 server.clobberAll();
                 break;
