@@ -210,52 +210,51 @@ export class BDSXServer extends BServer {
         // })();
         await execInDirProm(`git clone https://github.com/bdsx/bdsx .`);
         await fs.move(path.join(sPath, 'example_and_test'), path.join(sPath, 'examples'));
-        await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');", {
-            flag: 'w'
-        });
-        updateProgress("Installing node packages...", 30);
-        await execInDirProm(`npm i`, { "BDSX_YES": "false" }); // Disable BDS installation
-        updateProgress("Downloading BDS...", 40);
-        // await execInDirProm(`node ./bdsx/installer ./bedrock_server -y`);
+        await fs.createFile(path.join(sPath, 'example_and_test', 'index.ts'));
+        await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');");
+        updateProgress("Installing...", 80);
+        await execInDirProm(`npm i`);
+        // updateProgress("Downloading BDS...", 40);
+        // // await execInDirProm(`node ./bdsx/installer ./bedrock_server -y`);
         const version = JSON.parse((await fs.readFile(path.join(sPath, 'bdsx', 'version-bds.json'))).toString());
-        const BDSXCOREVERSION = JSON.parse((await fs.readFile(path.join(sPath, 'bdsx', 'version-bdsx.json'))).toString());
-        {
-            // Install BDS
-            await fs.ensureDir(path.join(sPath, 'bedrock_server'));
-            const zipPath = path.join(config.bdsDownloads, `win32-bedrock-server-${version}.zip`);
-            if(!(await fs.pathExists(zipPath)))
-                await wgetToFile(`https://minecraft.azureedge.net/bin-win/bedrock-server-${version}.zip`, zipPath, (percent) => {
-                    updateProgress("Downloading BDS...", 40 + (percent * 0.15));
-                });
-            updateProgress("Installing BDS...", 55);
-            const stream = fs.createReadStream(zipPath);
-            let length = Infinity;
-            let currentLength = 0;
-            fs.stat(zipPath).then(stat => length = stat.size);
-            stream.on('data', data => {
-                currentLength += data.length;
-                updateProgress("Installing BDS...", 55 + (10 * currentLength / length));
-            });
-            await stream.pipe(unzipper.Extract({ path: path.join(sPath, 'bedrock_server') })).promise();
-        }
-        {
-            // Install BDSXCore
-            const zipPath = path.join(config.bdsDownloads, `bdsx-core.zip`);
-            if(!(await fs.pathExists(zipPath)))
-                await wgetToFile(`https://github.com/bdsx/bdsx-core/releases/download/${BDSXCOREVERSION}/bdsx-core-${BDSXCOREVERSION}.zip`, zipPath, (percent) => {
-                    updateProgress("Downloading BDSX Core...", 65 + (percent * 0.15));
-                });
-            updateProgress("Installing BDSX Core...", 80);
-            const stream = fs.createReadStream(zipPath);
-            let length = Infinity;
-            let currentLength = 0;
-            fs.stat(zipPath).then(stat => length = stat.size);
-            stream.on('data', data => {
-                currentLength += data.length;
-                updateProgress("Installing BDSX Core...", 80 + (10 * currentLength / length));
-            });
-            await stream.pipe(unzipper.Extract({ path: path.join(sPath, 'bedrock_server') })).promise();
-        }
+        // const BDSXCOREVERSION = JSON.parse((await fs.readFile(path.join(sPath, 'bdsx', 'version-bdsx.json'))).toString());
+        // {
+        //     // Install BDS
+        //     await fs.ensureDir(path.join(sPath, 'bedrock_server'));
+        //     const zipPath = path.join(config.bdsDownloads, `win32-bedrock-server-${version}.zip`);
+        //     if(!(await fs.pathExists(zipPath)))
+        //         await wgetToFile(`https://minecraft.azureedge.net/bin-win/bedrock-server-${version}.zip`, zipPath, (percent) => {
+        //             updateProgress("Downloading BDS...", 40 + (percent * 0.15));
+        //         });
+        //     updateProgress("Installing BDS...", 55);
+        //     const stream = fs.createReadStream(zipPath);
+        //     let length = Infinity;
+        //     let currentLength = 0;
+        //     fs.stat(zipPath).then(stat => length = stat.size);
+        //     stream.on('data', data => {
+        //         currentLength += data.length;
+        //         updateProgress("Installing BDS...", 55 + (10 * currentLength / length));
+        //     });
+        //     await stream.pipe(unzipper.Extract({ path: path.join(sPath, 'bedrock_server') })).promise();
+        // }
+        // {
+        //     // Install BDSXCore
+        //     const zipPath = path.join(config.bdsDownloads, `bdsx-core.zip`);
+        //     if(!(await fs.pathExists(zipPath)))
+        //         await wgetToFile(`https://github.com/bdsx/bdsx-core/releases/download/${BDSXCOREVERSION}/bdsx-core-${BDSXCOREVERSION}.zip`, zipPath, (percent) => {
+        //             updateProgress("Downloading BDSX Core...", 65 + (percent * 0.15));
+        //         });
+        //     updateProgress("Installing BDSX Core...", 80);
+        //     const stream = fs.createReadStream(zipPath);
+        //     let length = Infinity;
+        //     let currentLength = 0;
+        //     fs.stat(zipPath).then(stat => length = stat.size);
+        //     stream.on('data', data => {
+        //         currentLength += data.length;
+        //         updateProgress("Installing BDSX Core...", 80 + (10 * currentLength / length));
+        //     });
+        //     await stream.pipe(unzipper.Extract({ path: path.join(sPath, 'bedrock_server') })).promise();
+        // }
         updateProgress("Building code...", 95);
         await execInDirProm(`npm run -s build`);
         updateProgress("Finished! Importing new server...", 100);
