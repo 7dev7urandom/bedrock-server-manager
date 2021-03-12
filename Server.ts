@@ -6,7 +6,6 @@ import { unescape } from 'querystring';
 import { config } from './Constants';
 import formidable = require('formidable');
 import { servers } from './index';
-import { LocalPermissions } from './classes/BServer';
 import { BDSXServer } from './classes/BDSXServer';
 
 export type userIdNum = number;

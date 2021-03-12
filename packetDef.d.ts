@@ -138,6 +138,13 @@ interface serverUpdate {
     scripts?: scripts;
 }
 
+interface changeScriptSetting {
+    serverId: number;
+    tab: string;
+    id: string;
+    value: any;
+}
+
 interface progressBar {
     id: string;
     text: string;

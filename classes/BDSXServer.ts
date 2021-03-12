@@ -1,33 +1,65 @@
 import { userIdNum, Server } from '../Server';
-import BPermission from './BPermissions';
-import { BProperties } from './BProperties';
-import { BServer } from './BServer';
+import { BServer, LocalPermissions } from './BServer';
 import DatabaseConnection from './DatabaseConnection';
 import { wgetToFile } from '../localUtil';
 import { config } from '../Constants';
 const path = require('path');
 import * as fs from 'fs-extra';
 import * as unzipper from 'unzipper';
-import * as request from 'request';
 import { ChildProcess, exec } from 'child_process';
 import { spawn } from 'node-pty';
 import { ServerProcess } from './ServerProcess';
-import { scripts } from '../packetDef';
+import { scripts, serverUpdate } from '../packetDef';
+import * as socketio from 'socket.io';
+import { servers } from '..';
+import Player from './Player';
 
-export const BDSXVERSION = '1.16.201.02';
-export const BDSXCOREVERSION = '1.0.1.0';
+// export const BDSXVERSION = '1.16.201.02';
+// export const BDSXCOREVERSION = '1.0.1.0';
+
+export interface BDSXServerUpdate extends serverUpdate {
+    scriptingTabs?: ScriptingTab[];
+}
+
+interface ScriptingTab {
+    name: string;
+    properties: ScriptingTabValue[];
+}
+
+interface ScriptingTabValue {
+    type: string;
+    value: any;
+    name: string;
+    id: string;
+}
+interface BooleanScriptingTabValue extends ScriptingTabValue {
+    type: "boolean";
+    value: boolean;
+}
+interface StringScriptingTabValue extends ScriptingTabValue {
+    type: "string";
+    value: string;
+}
+interface NumberScriptingTabValue extends ScriptingTabValue {
+    type: "number";
+    value: number;
+}
 
 export class BDSXServer extends BServer {
 
     static wineName;
     static serverQueue: BDSXServer[] = [];
-    static versionToBDSxVersion = new Set([BDSXVERSION]);
+    static io: socketio.Server;
     type: 'bdsx' = "bdsx";
     mainPath: string;
     scripts: scripts = {};
+    isConnectedToProcSocket: boolean = false;
+    extraScriptingTabs: ScriptingTab[] = [];
+    socket: socketio.Socket;
 
     constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
         super(id, desc, BDSXServer.wineName ? autostart : false, path.join(serverPath, 'bedrock_server'), version, allowedusers, whitelist);
+        BDSXServer.startServer();
         this.mainPath = serverPath;
         (async () => {
             await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
@@ -40,6 +72,44 @@ export class BDSXServer extends BServer {
             this.autostart = autostart;
             BDSXServer.serverQueue.push(this);
         }
+    }
+    static startServer() {
+        if(!config.bdsxServerListener || this.io) return;
+
+        this.io = socketio(config.bdsxServerListener);
+        this.io.on('connection', (socket) => {
+            socket.emit("ready", { version: "1.0" });
+            socket.on("sessionId", (sessionId) => {
+                if(!sessionId) {
+                    console.warn(`Invalid connection to BDSX server listener session id ${JSON.stringify(sessionId)}`);
+                    return;
+                }
+                const server = Array.from(servers.values()).find(server => server.sessionId === sessionId) as BDSXServer;
+                server.initializeSocket(socket);
+            });
+        });
+    }
+    initializeSocket(socket: SocketIO.Socket) {
+        this.isConnectedToProcSocket = true;
+        this.socket = socket;
+        socket.on("registerTabs", ({ tabs }) => {
+            this.extraScriptingTabs = tabs;
+            this.clobberWorld({ scriptingTabs: this.extraScriptingTabs });
+        });
+        socket.on("changeSetting", ({ tab, id, value }) => {
+            this.extraScriptingTabs
+                .find(tabName => tabName.name === tab).properties
+                .find(prop => prop.id === id).value = value;
+            this.clobberWorld({ scriptingTabs: this.extraScriptingTabs });
+        });
+        socket.on("getPlayers", () => {
+          socket.emit("playerList", Array.from(Player.nameToPlayer.keys()));
+        });
+        socket.on('disconnect', () => {
+            this.extraScriptingTabs = [];
+            this.clobberWorld({ scriptingTabs: [] });
+            this.isConnectedToProcSocket = false;
+        });
     }
     spawn() {
         if(process.platform == 'win32') {
@@ -56,13 +126,20 @@ export class BDSXServer extends BServer {
             }));
         }
     }
+    clobberWorld(data: BDSXServerUpdate) {
+        if(data.scriptingTabs && !(LocalPermissions.CAN_EDIT_PROPERTIES)) data.scriptingTabs = undefined;
+        super.clobberWorld(data);
+    }
+    sendAll(socket: SocketIO.Socket, additionalData: any = {}) {
+        super.sendAll(socket, Object.assign(additionalData, { scriptingTabs: this.extraScriptingTabs }));
+    }
+    
     static wineNameFound() {
         this.serverQueue.forEach(server => {
             server.start();
         });
     }
-    static async createNew(name: string, desc: string, version: string, creatorId: userIdNum, progressBarId: string) {
-        if(!BDSXServer.versionToBDSxVersion.has(version)) return;
+    static async createNew(name: string, desc: string, creatorId: userIdNum, progressBarId: string) {
         let text = "Loading...";
         let currentProg = 0;
         // Get the socket for sending updates on creation progress. If there is no socket then our emits will do nothing but throw no error
@@ -86,7 +163,7 @@ export class BDSXServer extends BServer {
         allowedusers["" + creatorId] = 255;
         const id = await DatabaseConnection.insertQueryReturnId({
             text: "INSERT INTO servers (allowedusers, description, version, autostart, type) VALUES ($1, $2, $3, false, 'bdsx')",
-            values: [JSON.stringify(allowedusers), desc, version]
+            values: [JSON.stringify(allowedusers), desc, 'bdsx']
         });
         // console.log("Creating");
         // console.log(JSON.stringify(res));
@@ -112,32 +189,34 @@ export class BDSXServer extends BServer {
             });
         }
         // downloads/bdsx/
-        await ((): Promise<void> => {
-            return new Promise(async (r) => {
-                if(await fs.pathExists(path.join(config.bdsDownloads, 'bdsx'))) {
-                    // BDSX 2.0 is already downloaded, update
-                    updateProgress("Updating...", 25);
-                    exec(`git pull`, {
-                        cwd: path.join(config.bdsDownloads, 'bdsx')
-                    }).on('close', r);
-                } else {
-                    // Need to clone bdsx
-                    exec(`git clone https://github.com/bdsx/bdsx bdsx`, {
-                        cwd: path.join(config.bdsDownloads)
-                    }).on('close', async () => {
-                        await fs.emptyDir(path.join(config.bdsDownloads, 'bdsx', 'example_and_test'));
-                        r();
-                    });
-                }
-            });
-        })();
-        updateProgress("Copying files...", 20);
-        await fs.copy(path.join(config.bdsDownloads, 'bdsx'), sPath);
+        // await ((): Promise<void> => {
+        //     return new Promise(async (r) => {
+        //         if(await fs.pathExists(path.join(config.bdsDownloads, 'bdsx'))) {
+        //             // BDSX 2.0 is already downloaded, update
+        //             updateProgress("Updating...", 25);
+        //             exec(`git pull`, {
+        //                 cwd: path.join(config.bdsDownloads, 'bdsx')
+        //             }).on('close', r);
+        //         } else {
+        //             // Need to clone bdsx
+        //             exec(`git clone https://github.com/bdsx/bdsx bdsx`, {
+        //                 cwd: path.join(config.bdsDownloads)
+        //             }).on('close', async () => {
+        //                 await fs.emptyDir(path.join(config.bdsDownloads, 'bdsx', 'example_and_test'));
+        //                 r();
+        //             });
+        //         }
+        //     });
+        // })();
+        await execInDirProm(`git clone https://github.com/bdsx/bdsx .`);
+        await fs.move(path.join(sPath, 'example_and_test'), path.join(sPath, 'examples'));
         await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');");
         updateProgress("Installing node packages...", 30);
         await execInDirProm(`npm i`, { "BDSX_YES": "false" }); // Disable BDS installation
         updateProgress("Downloading BDS...", 40);
         // await execInDirProm(`node ./bdsx/installer ./bedrock_server -y`);
+        const version = JSON.parse((await fs.readFile(path.join(sPath, 'bdsx', 'version-bds.json'))).toString());
+        const BDSXCOREVERSION = JSON.parse((await fs.readFile(path.join(sPath, 'bdsx', 'version-bdsx.json'))).toString());
         {
             // Install BDS
             await fs.ensureDir(path.join(sPath, 'bedrock_server'));
@@ -175,7 +254,7 @@ export class BDSXServer extends BServer {
             });
             await stream.pipe(unzipper.Extract({ path: path.join(sPath, 'bedrock_server') })).promise();
         }
-        updateProgress("Building...", 95);
+        updateProgress("Building code...", 95);
         await execInDirProm(`npm run -s build`);
         updateProgress("Finished! Importing new server...", 100);
         const serverObj = new BDSXServer(id, desc, false, sPath, version, allowedusers);

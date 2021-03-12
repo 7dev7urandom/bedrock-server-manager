@@ -19,4 +19,5 @@ interface Config {
         host: string;
         port: number;
     }
+    bdsxServerListener?: number | false;
 }

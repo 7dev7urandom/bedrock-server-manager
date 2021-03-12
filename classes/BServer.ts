@@ -11,6 +11,7 @@ import Player from "./Player";
 // const fs = require('fs-extra');
 import * as fs from 'fs-extra';
 import { ServerProcess } from "./ServerProcess";
+import PluginSystem from "./Plugins";
 // const fsprom = require('fs').promises;
 const path = require('path');
 
@@ -67,6 +68,8 @@ export abstract class BServer {
     prepQuery: CallableFunction[] = [];
     env: any;
     command: string[];
+    // UUID Session ID defined by proc
+    sessionId: string;
     // #region test
 
     // Gets all users mentioned in permissions.json and all players in db
@@ -258,7 +261,10 @@ export abstract class BServer {
                 this.status = "Stopped";
                 this.clobberAll();
             }, 10000);
-            this.queuedTasks.push(resolve);
+            this.queuedTasks.push(() => {
+                PluginSystem.serverStopped(this);
+                resolve();
+            });
         })
     }
     backupHold(): Promise<[string, number][]> {
@@ -296,9 +302,8 @@ export abstract class BServer {
                 
                 // console.log(dirhandle);
                 // this.worlds = dirhandle;
-            } finally {
-
-            }
+            } finally {}
+            PluginSystem.serverStarted(this);
             this.clobberAll();
         }
         else if(this.status === "Stopping" && data.endsWith("Quit correctly\n")) {
@@ -329,6 +334,10 @@ export abstract class BServer {
             }
             this.onlinePlayers.delete(Player.xuidToPlayer.get(xuid));
             this.clobberAll();
+        } else if (data.includes("] Session ID")) {
+            this.sessionId = data.match(/\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d INFO\] Session ID ([-\da-f]+)/)[1] ?? this.sessionId;
+            console.log(this.sessionId);
+            // console.log(JSON.stringify(this.sessionId));
         }
         // console.log(this.expectLine);
         this.expectLine.forEach(f => {
@@ -383,6 +392,10 @@ export abstract class BServer {
         });
     }
     sendData(data) {
+        if(this.status !== "Running"){
+            console.trace("Tried to sendData to stopped server");
+            return;
+        }
         this.proc.write(data);
         if(this.proc.proc.write) {
             // IPty instance, saving the input will be handled on the other end
@@ -403,7 +416,7 @@ export abstract class BServer {
             return;
         }
         // Write output to log file 
-        fs.appendFile(pathToLog, toAppend, err => {
+        fs.appendFile(pathToLog, `${Date.now()} ` + toAppend, err => {
             if (err) throw err;
             // console.log("pathToLog: " + pathToLog, "toAppend: " + toAppend);
         });
@@ -472,7 +485,7 @@ export abstract class BServer {
     }
     abstract specials(): any;
 // #endregion
-    sendAll(socket: Socket) {
+    sendAll(socket: Socket, additionalData: any = {}) {
         // Get the userId so we can test for permissions
         const userId = Server.idFromSocket.get(socket);
         const permLevel = this.getUserPermissionLevel(userId);
@@ -530,6 +543,7 @@ export abstract class BServer {
             type: this.type,
             scripts: Server.dataFromId.get(userId).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? (this.specials() ?? {}).scripts : undefined
         };
+        Object.assign(serverData, additionalData);
         socket.emit("fullServerSend", serverData);
     }
     async createWorld({name, seed, levelType}: createWorld) {

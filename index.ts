@@ -22,7 +22,8 @@ import {
     deleteWorld,
     createServer,
     uploadScriptZip,
-    uploadGitRepo
+    uploadGitRepo,
+    changeScriptSetting
 } from './packetDef';
 import { BProperties } from './classes/BProperties';
 import Player from './classes/Player';
@@ -31,6 +32,7 @@ import { createInterface } from 'readline';
 import { createHash } from 'crypto';
 import { exec } from 'child_process';
 import Database from './classes/DatabaseImpl';
+import PluginSystem from './classes/Plugins';
 
     
 config.bdsDownloads = config.bdsDownloads ?? path.join(config.basePath, 'bdsDownloads');
@@ -82,7 +84,7 @@ rl.on('line', async (line) => {
 export var servers: Map<number, BServer> = new Map();
 
 // var players: Player[] = [];
-
+PluginSystem.initalizePluginSystem();
 // DatabaseConnection.connect(config);
 Server.start(fs.readFileSync(path.join(__dirname, 'browser/index.html'), 'utf-8'));
 
@@ -201,7 +203,8 @@ function addListeners() {
         if(!server) return;
         if(!properties) properties = server.properties;
         if(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_EDIT_PROPERTIES) {
-            server.autostart = properties.autostart;
+            console.log(server.autostart, properties.autostart);
+            server.autostart = properties.autostart ?? server.autostart;
             properties.autostart = undefined;
             server.properties = new BProperties(properties);
             server.properties.commit(path.join(server.path, 'server.properties'));
@@ -374,7 +377,7 @@ function addListeners() {
             permission.permission = data.permissions.permission;
         }
         server.commitPermissions();
-        if(data.update) {
+        if(data.update && server.status === 'Running') {
             // if(data.permissions.permission === 'operator') {
             //     server.sendData('op ' + data.permissions.player.username);
             // } else {
@@ -508,6 +511,19 @@ function addListeners() {
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
         server.updateGitRepoScripts(socket, false);
+    });
+    Server.addListener("changeScriptSetting", (socket, data: changeScriptSetting) => {
+        const server = servers.get(data.serverId) as BDSXServer;
+        if(!server) return;
+        if(!(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_EDIT_PROPERTIES)) {
+            console.warn(`Unauthorized changeScriptSetting from ${Server.dataFromId.get(Server.idFromSocket.get(socket)).username} with permissions ${server.getUserPermissionLevel(Server.idFromSocket.get(socket))}`);
+            return;
+        }
+        if(!server.isConnectedToProcSocket) return;
+        server.extraScriptingTabs
+            .find(tab => tab.name === data.tab).properties
+            .find(prop => prop.id === data.id).value = data.value;
+        server.socket.emit("changeSetting", data);
     });
     // Server.addListener("")
 }
