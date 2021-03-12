@@ -210,7 +210,9 @@ export class BDSXServer extends BServer {
         // })();
         await execInDirProm(`git clone https://github.com/bdsx/bdsx .`);
         await fs.move(path.join(sPath, 'example_and_test'), path.join(sPath, 'examples'));
-        await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');");
+        await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');", {
+            flag: 'w'
+        });
         updateProgress("Installing node packages...", 30);
         await execInDirProm(`npm i`, { "BDSX_YES": "false" }); // Disable BDS installation
         updateProgress("Downloading BDS...", 40);
