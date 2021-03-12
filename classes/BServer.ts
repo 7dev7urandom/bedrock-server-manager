@@ -249,7 +249,7 @@ export abstract class BServer {
         this.onlinePlayers = new Set();
         this.clobberAll();
         return new Promise(resolve => {
-            if(this.status === 'Stopped') {
+            if(this.status === 'Stopped' || this.status === "Stopping") {
                 return resolve();
             };
             this.sendData("stop");
