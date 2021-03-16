@@ -27,7 +27,7 @@ export default class PluginSystem {
         this.serverStartedListeners.forEach(x => {
             try {
                 x(server)
-            } catch (e: any) {
+            } catch (e) {
                 console.warn("Error executing plugin: " + e);
             }
         });
@@ -36,7 +36,7 @@ export default class PluginSystem {
         this.serverStoppedListeners.forEach(x => {
             try {
                 x(server);
-            } catch (e: any) {
+            } catch (e) {
                 console.warn("Error executing plugin: " + e);
             }
         });
