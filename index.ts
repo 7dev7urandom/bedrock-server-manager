@@ -213,7 +213,7 @@ function addListeners() {
             }
             DatabaseConnection.query({
                 text: `UPDATE servers SET description = $1, autostart = $2 where id = $3`,
-                values: [description, server.autostart, server.id]
+                values: [server.description ?? '', server.autostart ?? false, server.id]
             });
             if(server.status === 'Running') {
                 server.clobberWorld({ properties: server.propertiesFull, description: description });
@@ -528,12 +528,11 @@ function addListeners() {
     // Server.addListener("")
 }
 
-
 function pKill() {
     console.log("Servers stopping");
     const proms = [];
     try {
-        servers.forEach(s => proms.push(s.stop()));
+        servers.forEach(s => proms.push(s.stop(true)));
     } catch {
         console.error("Error stopping servers. Ending now.");
         process.exit();

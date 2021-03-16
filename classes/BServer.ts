@@ -37,6 +37,7 @@ export abstract class BServer {
     static controls19132: BServer | null = null;
     static portsStarted: Set<number> = new Set();
     static initTotalServers: number;
+    forcedShutdown: boolean = false;
     properties: BProperties | null; //
     id: number; //
     specPermissions: Map<string, BPermission> | null; // xuid -> BPermission
@@ -158,6 +159,7 @@ export abstract class BServer {
         return this.allowedUsers.get(user) ?? 0;
     }
     async start(socket?: Socket) {
+        if(this.forcedShutdown) return;
         // console.log(`ID ${this.id} server start port ${this.properties['server-port']}`);
         // console.log(this.command);
         if(this.status !== "Stopped") return;
@@ -240,12 +242,14 @@ export abstract class BServer {
             this.clobberWorld({ status: this.status, currentWorld: this.currentWorld, properties: this.properties });
             this.clobberAll();
             clearTimeout(this.stopTimer);
+            PluginSystem.serverStopped(this);
             this.queuedTasks.forEach(c => c());
             this.queuedTasks = [];
         });
         this.clobberAll();
     }
-    stop(): Promise<void> {
+    stop(forceShutdown = false): Promise<void> {
+        if(forceShutdown) this.forcedShutdown = true;
         this.onlinePlayers = new Set();
         this.clobberAll();
         return new Promise(resolve => {
@@ -262,7 +266,6 @@ export abstract class BServer {
                 this.clobberAll();
             }, 10000);
             this.queuedTasks.push(() => {
-                PluginSystem.serverStopped(this);
                 resolve();
             });
         })
@@ -333,6 +336,9 @@ export abstract class BServer {
                 this.clobberWorld({ permissions: Array.from(this.permissions.values()) });
             }
             this.onlinePlayers.delete(Player.xuidToPlayer.get(xuid));
+            this.clobberAll();
+        } else if (this.status === "Running" && data.includes("Stopping server...")) {
+            this.status = "Stopping";
             this.clobberAll();
         } else if (data.includes("] Session ID")) {
             this.sessionId = data.match(/\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d INFO\] Session ID ([-\da-f]+)/)[1] ?? this.sessionId;

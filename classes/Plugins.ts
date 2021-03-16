@@ -24,9 +24,21 @@ export default class PluginSystem {
     }
 
     static serverStarted(server: BServer) {
-        this.serverStartedListeners.forEach(x => x(server));
+        this.serverStartedListeners.forEach(x => {
+            try {
+                x(server)
+            } catch (e: any) {
+                console.warn("Error executing plugin: " + e);
+            }
+        });
     }
     static serverStopped(server: BServer) {
-        this.serverStoppedListeners.forEach(x => x(server));
+        this.serverStoppedListeners.forEach(x => {
+            try {
+                x(server);
+            } catch (e: any) {
+                console.warn("Error executing plugin: " + e);
+            }
+        });
     }
 }
