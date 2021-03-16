@@ -204,6 +204,7 @@ function addListeners() {
         if(!properties) properties = server.properties;
         if(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_EDIT_PROPERTIES) {
             console.log(server.autostart, properties.autostart);
+            if(properties.autostart == 'undefined') properties.autostart = undefined; // Hacky fix for a bug where for some reason properties.autostart is the string undefined 
             server.autostart = properties.autostart ?? server.autostart;
             properties.autostart = undefined;
             server.properties = new BProperties(properties);
