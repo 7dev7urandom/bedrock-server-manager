@@ -18,9 +18,12 @@ PluginSystem.onServerStopped(async server => {
         const proms = [];
         new Map<string, string[][]>(Object.entries(data)).forEach((structure, id) => {
             structure.forEach(async (thing, index) => {
-
                 const path = join(server.path, 'behavior_packs', 'brain', 'structures', `lectern${id}${index}.mcstructure`);
                 await copyFile(join(server.path, 'behavior_packs', 'brain', 'structures', `lectern.mcstructure`), path);
+                if(!thing) {
+                    remove(path);
+                    return;
+                }
                 const { parsed, type } = await parse(await readFile(path), 'little');
                 //@ts-ignore
                 parsed.value.structure.value.palette.value.default.value.block_position_data.value["0"]
