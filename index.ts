@@ -504,14 +504,15 @@ function addListeners() {
         const server = servers.get(serverId) as BDSXServer;
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
-        server.scripts.repo = repo;
-        server.updateGitRepoScripts(socket, true);
+        // server.scripts.repo = repo;
+        // server.updateGitRepoScripts(socket, true);
+        server.addPlugin(repo);
     });
-    Server.addListener("updateGit", (socket, { serverId }) => {
+    Server.addListener("updateGit", (socket, { serverId, plugin }) => {
         const server = servers.get(serverId) as BDSXServer;
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
-        server.updateGitRepoScripts(socket, false);
+        server.updatePlugin(plugin);
     });
     Server.addListener("changeScriptSetting", (socket, data: changeScriptSetting) => {
         const server = servers.get(data.serverId) as BDSXServer;

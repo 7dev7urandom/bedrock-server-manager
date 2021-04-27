@@ -4,8 +4,8 @@
   "description": "A server mananger for minecraft bedrock edition using sockets",
   "main": "index.js",
   "scripts": {
-    "test": "tsc index && node index.js",
-    "dev": "tsc -w & node tests/exec.js"
+    "test": "node index.js",
+    "watch": "tsc -w"
   },
   "repository": {
     "type": "git",

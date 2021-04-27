@@ -1,15 +1,19 @@
 {
     "db": {
         "user": "bsm",
-        "password": "<yourpassword>",
+        "password": "bedrock-secret-server-pa$$",
         "host": "localhost",
         "database": "bsm",
         "software": "mysql"
     },
-    "basePath": "/path/to/basePath",
-    "bdsDownloads": "/path/to/basePath/bdsDownloads",
+    "basePath": "C:\\Users\\micah\\Documents\\code\\copy\\bedrock-server-manager\\basePath",
+    "bdsDownloads": "C:\\Users\\micah\\Documents\\code\\copy\\bedrock-server-manager\\basePath\\bdsDownloads",
     "server": {
         "host": "0.0.0.0",
         "port": 3000
-    }
+    },
+    "bdsxServerListener": 3001,
+    "enabledPlugins": [
+        "nbt-lectern-structure-data"
+    ]
 }

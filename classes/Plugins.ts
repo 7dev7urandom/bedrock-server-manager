@@ -1,4 +1,5 @@
 import { readdir } from 'fs/promises';
+import { config } from '../Constants';
 import { BServer } from './BServer';
 
 export default class PluginSystem {
@@ -11,8 +12,8 @@ export default class PluginSystem {
             withFileTypes: true
         })).filter(x => x.isDirectory());
         plugins.forEach(plugin => {
-            // const { serverStopped, serverStarted } = ;
-            this.plugins.add(require('../plugins/' + plugin.name + '/index'));
+            if(plugin.name in config.enabledPlugins)
+                this.plugins.add(require('../plugins/' + plugin.name + '/index'));
         });
     }
 

@@ -20,4 +20,5 @@ interface Config {
         port: number;
     }
     bdsxServerListener?: number | false;
+    enabledPlugins: string[];
 }

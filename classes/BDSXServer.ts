@@ -112,16 +112,20 @@ export class BDSXServer extends BServer {
         });
     }
     spawn() {
+        const env = Object.assign({}, process.env);
+        env.NODE_OPTIONS = undefined;
         if(process.platform == 'win32') {
             const proc = exec(`bedrock_server.exe ..`, {
-                cwd: this.path
+                cwd: this.path,
+                env
             });
             return new ServerProcess(proc);
         } else if (process.platform == 'linux') {
+            env.WINEDEBUG = "-all";
             // IPty spawn
             return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {
                 cwd: this.path,
-                env: Object.assign({}, process.env, { WINEDEBUG: '-all' }),
+                env,
                 cols: 200
             }));
         }
@@ -209,9 +213,9 @@ export class BDSXServer extends BServer {
         //     });
         // })();
         await execInDirProm(`git clone https://github.com/bdsx/bdsx .`);
-        await fs.move(path.join(sPath, 'example_and_test'), path.join(sPath, 'examples'));
-        await fs.createFile(path.join(sPath, 'example_and_test', 'index.ts'));
-        await fs.writeFile(path.join(sPath, 'example_and_test', 'index.ts'), "console.log('BSM injection loaded');");
+        // await fs.move(path.join(sPath, 'example_and_test'), path.join(sPath, 'examples'));
+        // await fs.createFile(path.join(sPath, 'example_and_test', 'index.ts'));
+        await fs.writeFile(path.join(sPath, 'index.ts'), "console.log('BSM injection loaded');");
         updateProgress("Installing...", 80);
         await execInDirProm(`npm i`);
         // updateProgress("Downloading BDS...", 40);
@@ -271,6 +275,59 @@ export class BDSXServer extends BServer {
             'linux': `cd ${this.path} && WINEDEBUG=-all ${BDSXServer.wineName} bedrock_server.exe`
         }[process.platform]
     }
+    async addPlugin(repo: string, name?: string): Promise<boolean> {
+        let pluginPath = path.join(this.mainPath, 'plugins', name ?? '.tmp');
+        try {
+            await fs.mkdir(pluginPath);
+        } catch {
+            return false;
+        }
+        await new Promise((r) => {
+            const proc: ChildProcess = exec(`git clone ${repo} .`, { cwd: pluginPath });
+            proc.on('close', r);
+        });
+        if((await fs.readdir(pluginPath)).length) return false;
+        if(!name) {
+            // Get the name from package.json
+            const json = JSON.parse((await fs.readFile(path.join(pluginPath, 'package.json'))).toString());
+            name = json.name;
+            pluginPath = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""));
+            if(!/@bdsx\//.test(name) || fs.pathExists(pluginPath)) {
+                await fs.remove(path.join(this.mainPath, 'plugins', '.tmp'));
+                return false;
+            }
+        }
+        return true;
+    }
+    async addPluginAsZip(filepath: string) {
+        throw new Error('Function not implemented');
+    }
+    async addPublicPlugin(pluginName: string): Promise<boolean> {
+        if(!/@bdsx\//.test(pluginName)) {
+            // TODO: send error message
+            return false;
+        }
+        await this.execInDirProm(`npm i "${pluginName}"`);
+        return true;
+    }
+    async execInDirProm(command, env?): Promise<void> {
+        return new Promise((r) => {
+            const proc: ChildProcess = exec(command, { cwd: this.mainPath, env });
+            proc.on('close', r);
+        });
+    }
+    async updatePlugin(pluginName: string) {
+        return new Promise((r) => {
+            const proc: ChildProcess = exec(`git pull`, { cwd: path.join(this.mainPath, 'plugins', pluginName) });
+            proc.on('close', r);
+        });
+    }
+    /**
+     * @deprecated We use plugins now instead of scripts. Upload a path to a git repo or a zip file of the plugin instead. Issue #2 on GitHub
+     * 
+     * @param filepath the path to the zip
+     * @param socket the user that performed the action
+     */
     async uploadScriptZip(filepath: string, socket: SocketIO.Socket) {
         await fs.emptyDir(path.join(this.mainPath, 'example_and_test'));
         await (await unzipper.Open.file(filepath)).extract({
@@ -288,6 +345,12 @@ export class BDSXServer extends BServer {
             scripts: this.scripts
         });
     }
+    /**
+     * @deprecated We use plugins now instead of scripts. Issue #2 on GitHub
+     * 
+     * @param socket the user that performed the action
+     * @param isNew do we need to clone or pull?
+     */
     async updateGitRepoScripts(socket: SocketIO.Socket, isNew: boolean) {
         if(!this.scripts.repo) return;
         if (isNew) await fs.emptyDir(path.join(this.mainPath, 'example_and_test'));
