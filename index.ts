@@ -23,7 +23,8 @@ import {
     createServer,
     uploadScriptZip,
     uploadGitRepo,
-    changeScriptSetting
+    changeScriptSetting,
+    updateGit
 } from './packetDef';
 import { BProperties } from './classes/BProperties';
 import Player from './classes/Player';
@@ -397,7 +398,7 @@ function addListeners() {
                 success: false,
                 reason: NO_PERMISSION_ERROR
             };
-            socket.send('serverCopyResponse', res);
+            socket.emit('serverCopyResponse', res);
             return;
         }
         if(server.worlds[data.toWorld]) {
@@ -405,7 +406,7 @@ function addListeners() {
                 success: false,
                 reason: 'World exists'
             };
-            socket.send('serverCopyResponse', res);
+            socket.emit('serverCopyResponse', res);
             return;
         }
         // path doesn't exist
@@ -414,12 +415,16 @@ function addListeners() {
                 success: false,
                 reason: "Can't copy worlds that aren't generated yet"
             };
-            socket.send('serverCopyResponse', res);
+            socket.emit('serverCopyResponse', res);
             return;
         }
-        let paths: [string, number][];
-        if(serverFrom.currentWorld === data.fromWorld) {
+        if(!['Running', 'Stopped'].includes(serverFrom.status)) return;
+        let paths: [string, number][] | string;
+        if(serverFrom.currentWorld === data.fromWorld && serverFrom.status === 'Running') {
             paths = await serverFrom.backupHold();
+            if(typeof paths === 'string') {
+                throw new Error("index.ts error copying world: should never get here");
+            }
             server.worlds[data.toWorld] = new BWorld(server.id, data.toWorld, path.join(server.path, 'worlds', data.toWorld), true);
             const proms: Promise<void>[] = [];
             paths.forEach(pathToFile => {
@@ -441,7 +446,7 @@ function addListeners() {
             success: true,
             // reason: 'World exists'
         };
-        socket.send('serverCopyResponse', res);
+        socket.emit('serverCopyResponse', res);
         server.clobberWorld({ worlds: server.worlds });
     });
     Server.addListener('deleteWorld', async (socket, data: deleteWorld) => {
@@ -507,12 +512,14 @@ function addListeners() {
         // server.scripts.repo = repo;
         // server.updateGitRepoScripts(socket, true);
         server.addPlugin(repo);
+        // TODO: send error message if failed
     });
-    Server.addListener("updateGit", (socket, { serverId, plugin }) => {
+    Server.addListener("updateGit", (socket, { serverId, plugin }: updateGit) => {
         const server = servers.get(serverId) as BDSXServer;
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
         server.updatePlugin(plugin);
+        // TODO: send error message if failed
     });
     Server.addListener("changeScriptSetting", (socket, data: changeScriptSetting) => {
         const server = servers.get(data.serverId) as BDSXServer;
@@ -549,6 +556,7 @@ function pKill() {
 }
 rl.on('SIGINT', pKill);
 process.on('SIGTERM', pKill);
+process.on('SIGINT', pKill);
 
 //catches uncaught exceptions
 process.on('uncaughtException', (err, origin) => {

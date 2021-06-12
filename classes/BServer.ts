@@ -71,8 +71,7 @@ export abstract class BServer {
     command: string[];
     // UUID Session ID defined by proc
     sessionId: string;
-    // #region test
-
+    extraData: any;
     // Gets all users mentioned in permissions.json and all players in db
     get permissions() {
         // Make a shallow copy of the map
@@ -205,15 +204,13 @@ export abstract class BServer {
             // console.log("data from server id " + this.id + ": " + data);
             // if(this.description == 'A real genuine test of the software') console.log(data);
             this.pendingData += data;
-            if(this.pendingData.endsWith("\n")) {
-                if(this.pendingData.includes('\b')) {
-                    // Fix for IPty instances that repeat the input with backspaces characters every char
-                    this.pendingData = '';
-                    return;
-                }
-                this.recvData(this.pendingData);
-                this.pendingData = '';
-            }
+            const lines = this.pendingData.split("\n");
+            this.pendingData = lines.pop();
+            lines.forEach((line) => {
+                // Fix for IPty instances that repeat the input with backspaces characters every char
+                if(line.includes('\b')) return;
+                this.recvData(line + '\n');
+            })
         });
         this.proc.on('exit', async (code, signal) => {
             if(code !== 0 && this.status !== 'Stopping') {
@@ -270,8 +267,13 @@ export abstract class BServer {
             });
         })
     }
-    backupHold(): Promise<[string, number][]> {
-        return new Promise(resolve => {
+    backupHold(): Promise<[string, number][] | string> {
+        return new Promise(async resolve => {
+            if(this.status === 'Stopped') {
+                // const paths = (await fs.readdir(path.join(this.path, 'worlds', this.currentWorld)));
+                resolve(path.join(this.path, 'worlds', this.currentWorld));
+                return;
+            }
             this.sendData('save hold');
             this.queryInterval = setInterval(() => {
                 this.sendData('save query');
@@ -353,21 +355,23 @@ export abstract class BServer {
         this.expectLine = [];
         
         // Run backup
-        if(data.includes("Data saved. Files are now ready to be copied.")) {
+        if(data.includes("Data saved. Files are now ready to be copied.") && this.queryInterval) {
             clearInterval(this.queryInterval);
+            this.queryInterval = null;
             // console.log("data: " + data);
-
-            // Gathers the files and lengths
-            const filedata = data.split("\n")[1];
-            const filearr: string[] = filedata.split(", ");
-            const dataarr = filearr.map(string => {
-                const vals = /(.+):(\d+)/.exec(string);
-                return [vals[1], parseInt(vals[2])];
+            this.expectLine.push((filedata) => {
+                // const filedata = data.split("\n")[1];
+                const filearr: string[] = filedata.split(", ");
+                const dataarr = filearr.map(string => {
+                    const vals = /(.+):(\d+)/.exec(string);
+                    return [vals[1], parseInt(vals[2])];
+                });
+                if(this.backupResolve) {
+                    this.backupResolve(dataarr);
+                    this.backupResolve = undefined;
+                }
             });
-            if(this.backupResolve) {
-                this.backupResolve(dataarr);
-                this.backupResolve = undefined;
-            }
+            // Gathers the files and lengths
 
             // Copy
             // dataarr.forEach(file => {
@@ -481,7 +485,7 @@ export abstract class BServer {
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PERMISSIONS)) tmpData.allowedUsers = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_USE_CONSOLE)) tmpData.consoleAppend = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PROPERTIES)) tmpData.permissions = undefined;
-            if(!(userdata.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) tmpData.scripts = undefined;
+            if(!(userdata.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) tmpData.extraData = undefined;
             
             if(userdata.selectedServer == this.id) {
                 // console.log("Sending to user id " + userdata.id + " data " + data.status);
@@ -489,7 +493,6 @@ export abstract class BServer {
             }
         })
     }
-    abstract specials(): any;
 // #endregion
     sendAll(socket: Socket, additionalData: any = {}) {
         // Get the userId so we can test for permissions
@@ -547,7 +550,7 @@ export abstract class BServer {
             autostart: this.autostart,
             currentWorld: this.currentWorld,
             type: this.type,
-            scripts: Server.dataFromId.get(userId).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? (this.specials() ?? {}).scripts : undefined
+            // extraData: Server.dataFromId.get(userId).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? this.extraData : undefined
         };
         Object.assign(serverData, additionalData);
         socket.emit("fullServerSend", serverData);
@@ -623,15 +626,15 @@ export abstract class BServer {
         });
     }
 }
-export class LocalPermissions {
-    static readonly CAN_VIEW             = 0b0000000001;
-    static readonly CAN_USE_CONSOLE      = 0b0000000010;
-    static readonly CAN_EDIT_PROPERTIES  = 0b0000000100;
-    static readonly CAN_CREATE_WORLDS    = 0b0000001000;
-    static readonly CAN_DELETE_WORLDS    = 0b0000010000;
-    static readonly CAN_SET_STATUS       = 0b0000100000;
-    static readonly CAN_EDIT_PERMISSIONS = 0b0001000000;
-    static readonly IS_CREATOR_OF_SERVER = 0b0010000000;
+export enum LocalPermissions {
+    CAN_VIEW             = 0b0000000001,
+    CAN_USE_CONSOLE      = 0b0000000010,
+    CAN_EDIT_PROPERTIES  = 0b0000000100,
+    CAN_CREATE_WORLDS    = 0b0000001000,
+    CAN_DELETE_WORLDS    = 0b0000010000,
+    CAN_SET_STATUS       = 0b0000100000,
+    CAN_EDIT_PERMISSIONS = 0b0001000000,
+    IS_CREATOR_OF_SERVER = 0b0010000000
 }
 // Map.prototype.inspect = function() {
 //     return `Map(${mapEntriesToString(this.entries())})`

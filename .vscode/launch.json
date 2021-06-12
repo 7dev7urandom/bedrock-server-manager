@@ -1,14 +1,18 @@
 {
     "configurations": [
         {
-            "name": "Launch Program",
-            "program": "${workspaceFolder}/index.js",
-            "preLaunchTask": "${defaultBuildTask}",
+            "name": "Attach by Process ID",
+            "program": "${workspaceFolder}/index.ts",
             "request": "launch",
             "skipFiles": [
                 "<node_internals>/**"
             ],
+            "localRoot": "${workspaceFolder}",
             "type": "pwa-node",
+            // "port": 3001,
+            "sourceMaps": true,
+            "remoteRoot": "${workspaceFolder}",
+            "killBehavior": "none",
             "console": "integratedTerminal"
         }
     ]

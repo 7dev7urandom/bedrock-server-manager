@@ -1,4 +1,4 @@
-import { userIdNum, Server } from '../Server';
+import { userIdNum, Server, GlobalPermissions } from '../Server';
 import { BServer, LocalPermissions } from './BServer';
 import DatabaseConnection from './DatabaseConnection';
 import { wgetToFile } from '../localUtil';
@@ -9,7 +9,7 @@ import * as unzipper from 'unzipper';
 import { ChildProcess, exec } from 'child_process';
 import { spawn } from 'node-pty';
 import { ServerProcess } from './ServerProcess';
-import { scripts, serverUpdate } from '../packetDef';
+import { serverUpdate } from '../packetDef';
 import * as socketio from 'socket.io';
 import { servers } from '..';
 import Player from './Player';
@@ -45,6 +45,12 @@ interface NumberScriptingTabValue extends ScriptingTabValue {
     value: number;
 }
 
+export interface BDSXPlugin {
+    name: string;
+    repo: string | null;
+    dateEdited: Date;
+}
+
 export class BDSXServer extends BServer {
 
     static wineName;
@@ -52,21 +58,48 @@ export class BDSXServer extends BServer {
     static io: socketio.Server;
     type: 'bdsx' = "bdsx";
     mainPath: string;
-    scripts: scripts = {};
     isConnectedToProcSocket: boolean = false;
     extraScriptingTabs: ScriptingTab[] = [];
     socket: socketio.Socket;
+    extraData: {
+        plugins: BDSXPlugin[];
+    } = {
+        plugins: []
+    };
 
     constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
         super(id, desc, BDSXServer.wineName ? autostart : false, path.join(serverPath, 'bedrock_server'), version, allowedusers, whitelist);
         BDSXServer.startServer();
         this.mainPath = serverPath;
+        // Deprecated. Was for scripts, now plugins are used instead
+        // (async () => {
+        //     await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
+        //     // || not ?? because empty string should be considered falsey
+        //     this.scripts = JSON.parse((await fs.readFile(path.join(this.mainPath, 'scriptInfo.json'))).toString() || 'null') ?? {
+        //         uploadedTime: false
+        //     };
+        // })();
         (async () => {
-            await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
-            // || not ?? because empty string should be considered falsey
-            this.scripts = JSON.parse((await fs.readFile(path.join(this.mainPath, 'scriptInfo.json'))).toString() || 'null') ?? {
-                uploadedTime: false
-            };
+            // TODO: check that this works in win32 and 
+            try {
+                
+                for(const pluginName in await fs.readdir(path.join(this.mainPath, 'plugins'))) {
+                    const [{ ctime: creationTime }, repoUrl] = await Promise.all([
+                        fs.stat(path.join(this.mainPath, 'plugins', pluginName, '.git', 'FETCH_HEAD')),
+                        new Promise((r: (url: string) => void) => {
+                            exec('git config --get remote.origin.url', { cwd: this.mainPath, env }, (err, out) => {
+                                if(err) throw err;
+                                r(out);
+                            });
+                        })
+                    ]);
+                    this.extraData.plugins.push({
+                        dateEdited: creationTime,
+                        repo: repoUrl,
+                        name: pluginName
+                    });
+                }
+            } catch {}
         })();
         if(!BDSXServer.wineName && autostart) {
             this.autostart = autostart;
@@ -135,7 +168,7 @@ export class BDSXServer extends BServer {
         super.clobberWorld(data);
     }
     sendAll(socket: SocketIO.Socket, additionalData: any = {}) {
-        super.sendAll(socket, Object.assign(additionalData, { scriptingTabs: this.extraScriptingTabs }));
+        super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? { scriptingTabs: this.extraScriptingTabs } : {}));
     }
     
     static wineNameFound() {
@@ -286,28 +319,70 @@ export class BDSXServer extends BServer {
             const proc: ChildProcess = exec(`git clone ${repo} .`, { cwd: pluginPath });
             proc.on('close', r);
         });
-        if((await fs.readdir(pluginPath)).length) return false;
+        if(!(await fs.readdir(pluginPath)).length) {
+            await fs.remove(pluginPath);
+            return false;
+        }
         if(!name) {
             // Get the name from package.json
-            const json = JSON.parse((await fs.readFile(path.join(pluginPath, 'package.json'))).toString());
-            name = json.name;
-            pluginPath = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""));
-            if(!/@bdsx\//.test(name) || fs.pathExists(pluginPath)) {
+            let json;
+            try {
+                json = JSON.parse((await fs.readFile(path.join(pluginPath, 'package.json'))).toString());
+            } catch {
                 await fs.remove(path.join(this.mainPath, 'plugins', '.tmp'));
                 return false;
             }
+            name = json.name;
+            pluginPath = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""));
+            if(!/@bdsx\//.test(name) || await fs.pathExists(pluginPath)) {
+                await fs.remove(path.join(this.mainPath, 'plugins', '.tmp'));
+                return false;
+            }
+            await fs.move(path.join(this.mainPath, 'plugins', '.tmp'), pluginPath);
         }
+        this.extraData.plugins.push({
+            name,
+            dateEdited: new Date(),
+            repo
+        });
         return true;
     }
-    async addPluginAsZip(filepath: string) {
-        throw new Error('Function not implemented');
+    async addPluginAsZip(filepath: string): Promise<boolean> {
+        const tmpDir = path.join(this.mainPath, 'plugins', '.tmp');
+        fs.mkdir(tmpDir);
+        await (await unzipper.Open.file(filepath)).extract({
+            path: tmpDir
+        });
+        let name;
+        try {
+            name = JSON.parse((await fs.readFile(path.join(tmpDir, 'package.json'))).toString()).name;
+        } catch {
+            await fs.remove(tmpDir);
+            return false;
+        }
+        const pluginDir = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""))
+        if(!/@bdsx\//.test(name) || fs.pathExists(pluginDir)) {
+            await fs.remove(path.join(this.mainPath, 'plugins', '.tmp'));
+            return false;
+        }
+        await fs.move(path.join(this.mainPath, 'plugins', '.tmp'), pluginDir);
+        this.extraData.plugins.push({
+            name,
+            dateEdited: new Date(),
+            repo: null
+        });
+        return true;
     }
     async addPublicPlugin(pluginName: string): Promise<boolean> {
         if(!/@bdsx\//.test(pluginName)) {
-            // TODO: send error message
             return false;
         }
         await this.execInDirProm(`npm i "${pluginName}"`);
+        this.extraData.plugins.push({
+            name: pluginName,
+            dateEdited: new Date(),
+            repo: "Public npm package"
+        });
         return true;
     }
     async execInDirProm(command, env?): Promise<void> {
@@ -321,62 +396,5 @@ export class BDSXServer extends BServer {
             const proc: ChildProcess = exec(`git pull`, { cwd: path.join(this.mainPath, 'plugins', pluginName) });
             proc.on('close', r);
         });
-    }
-    /**
-     * @deprecated We use plugins now instead of scripts. Upload a path to a git repo or a zip file of the plugin instead. Issue #2 on GitHub
-     * 
-     * @param filepath the path to the zip
-     * @param socket the user that performed the action
-     */
-    async uploadScriptZip(filepath: string, socket: SocketIO.Socket) {
-        await fs.emptyDir(path.join(this.mainPath, 'example_and_test'));
-        await (await unzipper.Open.file(filepath)).extract({
-            path: path.join(this.mainPath, 'example_and_test')
-        });
-        exec(`npm run build`, {
-            cwd: this.mainPath
-        });
-        socket.emit(`scriptZipUploaded`);
-        this.scripts.uploadedAuthor = Server.dataFromId.get(Server.idFromSocket.get(socket)).username;
-        this.scripts.uploadedTime = Date.now();
-        this.scripts.repo = undefined;
-        fs.writeFile(path.join(this.mainPath, 'scriptInfo.json'), JSON.stringify(this.scripts));
-        this.clobberWorld({
-            scripts: this.scripts
-        });
-    }
-    /**
-     * @deprecated We use plugins now instead of scripts. Issue #2 on GitHub
-     * 
-     * @param socket the user that performed the action
-     * @param isNew do we need to clone or pull?
-     */
-    async updateGitRepoScripts(socket: SocketIO.Socket, isNew: boolean) {
-        if(!this.scripts.repo) return;
-        if (isNew) await fs.emptyDir(path.join(this.mainPath, 'example_and_test'));
-        if(!await fs.pathExists(path.join(this.mainPath, 'example_and_test', '.git'))) {
-            await (new Promise(r => exec(`git clone ${this.scripts.repo} example_and_test`, {
-                cwd: this.mainPath
-            }).on('close', x => r(x))));
-        } else {
-            await (new Promise(r => exec(`git pull`, {
-                cwd: path.join(this.mainPath, 'example_and_test')
-            }).on('close', x => r(x))));
-        }
-        exec(`npm run build`, {
-            cwd: this.mainPath
-        });
-        this.scripts.uploadedTime = Date.now();
-        this.scripts.uploadedAuthor = Server.dataFromId.get(Server.idFromSocket.get(socket)).username;
-
-        fs.writeFile(path.join(this.mainPath, 'scriptInfo.json'), JSON.stringify(this.scripts));
-        this.clobberWorld({
-            scripts: this.scripts
-        });
-    }
-    specials() {
-        return {
-            scripts: this.scripts
-        }
     }
 }

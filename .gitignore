@@ -7,3 +7,4 @@ browser/
 servers/
 bedrock-server-manager-client/
 out/linecount.*
+*.js.map

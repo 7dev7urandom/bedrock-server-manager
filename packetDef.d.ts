@@ -109,11 +109,11 @@ interface serverCopyResponse {
     reason?: string;
 }
 
-interface scripts {
-    uploadedTime?: number | boolean;
-    uploadedAuthor?: string;
-    repo?: string;
-}
+// interface scripts {
+//     uploadedTime?: number | boolean;
+//     uploadedAuthor?: string;
+//     repo?: string;
+// }
 interface uploadGitRepo {
     serverId: number;
     repo: string;
@@ -121,6 +121,7 @@ interface uploadGitRepo {
 
 interface updateGit {
     serverId: number;
+    plugin: string;
 }
 
 interface serverUpdate {
@@ -135,7 +136,7 @@ interface serverUpdate {
     controls19132?: boolean;
     output?: string;
     permissions?: BPermission[];
-    scripts?: scripts;
+    extraData?: any;
 }
 
 interface changeScriptSetting {
@@ -177,7 +178,7 @@ interface fullServerSend {
     allowedUsers?: userPermissionData[];
     currentWorld: string;
     type: 'bdsx' | 'elementzeror' | 'vanilla';
-    scripts?: scripts;
+    extraData?: any;
 }
 
 interface serverDeleted {

@@ -23,14 +23,14 @@ export interface UserData {
     secretString: string | null;
     password: string;
 }
-export class GlobalPermissions {
-    static readonly CAN_CREATE_SERVER =      0b00000001;
-    static readonly CAN_DELETE_SERVER =      0b00000010;
-    static readonly CAN_GRANT_PERMISSIONS =  0b00000100;
-    static readonly CAN_OVERRIDE_LOCAL =     0b00001000;
-    static readonly CAN_REFRESH_DB =         0b00010000;
-    static readonly CAN_MANAGE_OTHER_USERS = 0b00100000;
-    static readonly CAN_MANAGE_SCRIPTS =     0b01000000;
+export enum GlobalPermissions {
+    CAN_CREATE_SERVER =      0b00000001,
+    CAN_DELETE_SERVER =      0b00000010,
+    CAN_GRANT_PERMISSIONS =  0b00000100,
+    CAN_OVERRIDE_LOCAL =     0b00001000,
+    CAN_REFRESH_DB =         0b00010000,
+    CAN_MANAGE_OTHER_USERS = 0b00100000,
+    CAN_MANAGE_SCRIPTS =     0b01000000
 
     // static readonly CAN_X =   0b01000000;
 }
@@ -64,7 +64,8 @@ export class Server {
                     if(fileses.type !== "application/x-zip-compressed") return res.end(JSON.stringify({ message: { fields, files }, success: false }));
                     if(server.type !== 'bdsx') return res.end(JSON.stringify({ message: { fields, files }, success: false }));
                     
-                    await (server as BDSXServer).uploadScriptZip(fileses.path, data.socket);
+                    await (server as BDSXServer).addPluginAsZip(fileses.path);
+                    // TODO: send error message if failed
                     res.end(JSON.stringify({ success: true }));
                 });
                 return;
