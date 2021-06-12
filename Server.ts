@@ -99,11 +99,17 @@ export class Server {
                     // console.log(`Event ${event} with callback ${callback}`);
                     socket.on(event, data => {
                         if(!Server.idFromSocket.get(socket) && event !== 'login' && event !== 'disconnect') {
-                            console.warn(`Unauthorized packet ${event} from non-logged in user with IP address ${socket.request.connection.remoteAddress}`);
+                            console.log(`Unauthorized packet ${event} from non-logged in user with IP address ${socket.request.connection.remoteAddress}`);
                             return;
                         };
                         // console.log(`${event} from ${Server.idFromSocket.get(socket) ? Server.dataFromId.get(Server.idFromSocket.get(socket)).username : "annonymous user" }`);
-                        callback(socket, data);
+                        try {
+                            callback(socket, data);
+                        } catch (error) {
+                            const user = Server.idFromSocket.get(socket);
+                            console.log(`Error encountered with packet ${event} from ${user ? Server.dataFromId.get(user).username : "non-logged in user with IP address " + socket.request.connection.remoteAddress}\n` + 
+                            `  Data: ${JSON.stringify(data)}`);
+                        }
                     });
                 }
             }
