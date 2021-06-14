@@ -1,12 +1,14 @@
 import * as http from 'http';
 import { Socket, Server as socketServer } from 'socket.io';
 import * as socketio from 'socket.io';
-import { readFile } from 'fs';
+import { readFile, readFileSync } from 'fs-extra';
 import { unescape } from 'querystring';
 import { config } from './Constants';
 import formidable = require('formidable');
-import { servers } from './index';
 import { BDSXServer } from './classes/BDSXServer';
+import { BServer } from './classes/BServer';
+import path = require('path');
+
 
 export type userIdNum = number;
 
@@ -44,8 +46,8 @@ export class Server {
     static dataFromId: Map<userIdNum, UserData> = new Map<userIdNum, UserData>();
     static idFromSocket: Map<Socket, userIdNum> = new Map<Socket, userIdNum>();
 
-    static start(page) {
-        Server.page = page;
+    static start() {
+        Server.page = readFileSync(path.join(__dirname, 'browser/index.html'), 'utf-8');
         Server.server = http.createServer((req, res) => {
             let url = unescape(req.url);
             if(req.method.toLowerCase() === 'post' && url === '/upload') {
@@ -58,7 +60,7 @@ export class Server {
                     const tmp = Array.from(this.dataFromId.entries()).find(([ id, data ]) => data.secretString === fields.secretString);
                     if(!tmp) return;
                     const data = tmp[1];
-                    const server = servers.get(parseInt(fields.serverId as string));
+                    const server = BServer.servers.get(parseInt(fields.serverId as string));
                     if(!server) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
                     if(!(data.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
                     const fileses: any = files.zipFile;

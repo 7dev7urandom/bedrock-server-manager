@@ -11,7 +11,6 @@ import { spawn } from 'node-pty';
 import { ServerProcess } from './ServerProcess';
 import { serverUpdate } from '../packetDef';
 import * as socketio from 'socket.io';
-import { servers } from '..';
 import Player from './Player';
 
 // export const BDSXVERSION = '1.16.201.02';
@@ -135,7 +134,7 @@ export class BDSXServer extends BServer {
                     console.warn(`Invalid connection to BDSX server listener session id ${JSON.stringify(sessionId)}`);
                     return;
                 }
-                const server = Array.from(servers.values()).find(server => server.sessionId === sessionId) as BDSXServer;
+                const server = Array.from(BServer.servers.values()).find(server => server.sessionId === sessionId) as BDSXServer;
                 server.initializeSocket(socket);
             });
         });
@@ -472,4 +471,44 @@ export class BDSXServer extends BServer {
     static checkNpmName(name: string, withScope = false) {
         return withScope ? /^@bdsx\/[a-z\-]*$/.test(name) : /^[a-z\-]*$/.test(name);
     }
+}
+if(process.platform == 'win32') {
+    BDSXServer.wineName = true; // Doesn't matter, won't be used. Must be truthy
+    BDSXServer.wineNameFound();
+} else {
+    console.log("Checking for wine...");
+    getWineName().then(x => {
+        BDSXServer.wineName = x;
+        console.log("Wine found");
+        BDSXServer.wineNameFound();
+    });
+}
+class WineNotFoundError extends Error {
+    constructor(str = "Wine is not installed! Modded servers cannot be run.") {
+        super(str);
+    }
+}
+async function getWineName(): Promise<string | false> {
+    return new Promise(resolve => {
+        if(process.platform === 'win32') {
+            resolve('wine');
+            return;
+        }
+        exec(`command -v wine`, (err, stdout) => {
+            if(err) throw err;
+            // console.log(stdout);
+            if(stdout.includes("wine")) {
+                resolve(`wine`);
+            } else {
+                exec(`command -v wine64`, (err, stdout) => {
+                    if(err) throw err;
+                    if(stdout.includes("wine64")) {
+                        resolve(`wine64`);
+                    } else {
+                        throw new WineNotFoundError();
+                    }
+                });
+            }
+        });
+    });
 }

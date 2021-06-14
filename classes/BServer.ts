@@ -13,7 +13,6 @@ import * as fs from 'fs-extra';
 import { ServerProcess } from "./ServerProcess";
 import PluginSystem from "./Plugins";
 import DatabaseConnection from "./DatabaseConnection";
-import { servers } from "..";
 // const fsprom = require('fs').promises;
 const path = require('path');
 
@@ -39,6 +38,7 @@ export abstract class BServer {
     static controls19132: BServer | null = null;
     static portsStarted: Set<number> = new Set();
     static initTotalServers: number;
+    static servers: Map<number, BServer> = new Map();
     forcedShutdown: boolean = false;
     properties: BProperties | null; //
     id: number; //
@@ -620,7 +620,7 @@ export abstract class BServer {
     }
     async delete(deleteData: boolean) {
         console.log(`DELETING server id ${this.id} ${deleteData ? '' : 'not '}including files`);
-        servers.delete(this.id);
+        BServer.servers.delete(this.id);
         if(deleteData) {
             try {
                 await fs.remove(this.path);

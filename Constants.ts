@@ -1,8 +1,10 @@
 import { readFileSync } from 'fs-extra';
+import path = require('path');
 
 export const NO_PERMISSION_ERROR = "You don't have permission to do that";
 
 export const config: Config = JSON.parse(readFileSync('./config.json').toString());
+config.bdsDownloads = config.bdsDownloads ?? path.join(config.basePath, 'bdsDownloads');
 
 interface Config {
     db: {

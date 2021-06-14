@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { Server } from "../Server";
 import path = require("path");
-import { servers } from "..";
 import { propertiesFileToBProperties, permissionsFileToBPermissions } from "../localUtil";
 import { serverUpdate } from "../packetDef";
 import { BServer, LocalPermissions } from "./BServer";
@@ -9,6 +8,8 @@ import DatabaseConnection from "./DatabaseConnection";
 import Player from "./Player";
 import { BDSXServer } from './BDSXServer';
 import { VanillaServer } from './VanillaServer';
+
+const { servers } = BServer;
 
 export default class Database {
     static async verifyTables() {
