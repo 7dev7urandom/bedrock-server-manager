@@ -55,7 +55,9 @@ export class Server {
                     // res.end(JSON.stringify({ success: false }));
                     if(err) console.error(err);
                     if(!fields.secretString || !fields.serverId) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
-                    const data = Array.from(this.dataFromId.entries()).find(([ id, data ]) => data.secretString === fields.secretString)[1];
+                    const tmp = Array.from(this.dataFromId.entries()).find(([ id, data ]) => data.secretString === fields.secretString);
+                    if(!tmp) return;
+                    const data = tmp[1];
                     const server = servers.get(parseInt(fields.serverId as string));
                     if(!server) return res.end(JSON.stringify({ message: { fields, files }, success: false }));
                     if(!(data.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return res.end(JSON.stringify({ message: { fields, files }, success: false }));

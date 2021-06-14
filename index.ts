@@ -24,7 +24,8 @@ import {
     uploadScriptZip,
     uploadGitRepo,
     changeScriptSetting,
-    updateGit
+    updateGit,
+    deleteServer
 } from './packetDef';
 import { BProperties } from './classes/BProperties';
 import Player from './classes/Player';
@@ -513,14 +514,27 @@ function addListeners() {
         // server.updateGitRepoScripts(socket, true);
         server.addPlugin(repo);
         // TODO: send error message if failed
+        // TODO: clobber plugin list
     });
-    Server.addListener("updateGit", (socket, { serverId, plugin }: updateGit) => {
+    Server.addListener("installPlugin", (socket, { serverId, name }) => {
+        const server = servers.get(serverId) as BDSXServer;
+        if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
+        if(server.type !== 'bdsx') return;
+        server.addPublicPlugin(name);
+    })
+    Server.addListener("updatePlugin", (socket, { serverId, plugin }: updateGit) => {
         const server = servers.get(serverId) as BDSXServer;
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
         server.updatePlugin(plugin);
         // TODO: send error message if failed
     });
+    Server.addListener("removePlugin", (socket, { serverId, plugin }) => {
+        const server = servers.get(serverId) as BDSXServer;
+        if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
+        if(server.type !== 'bdsx') return;
+        server.removePlugin(plugin);
+    })
     Server.addListener("changeScriptSetting", (socket, data: changeScriptSetting) => {
         const server = servers.get(data.serverId) as BDSXServer;
         if(!server) return;
@@ -534,6 +548,11 @@ function addListeners() {
             .find(prop => prop.id === data.id).value = data.value;
         server.socket.emit("changeSetting", data);
     });
+    Server.addListener("deleteServer", (socket, { serverId, deleteData }: deleteServer ) => {
+        const user = Server.dataFromId.get(Server.idFromSocket.get(socket));
+        if(!(user.globalPermissions & GlobalPermissions.CAN_DELETE_SERVER)) return;
+        servers.get(serverId)?.delete(deleteData);
+    })
     // Server.addListener("")
 }
 

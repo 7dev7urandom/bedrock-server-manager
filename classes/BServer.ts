@@ -3,7 +3,7 @@ import BPermission from './BPermissions';
 import { BProperties } from './BProperties';
 import { Socket } from "socket.io";
 import { Server, GlobalPermissions } from '../Server'
-import { createWorld, fullServerSend, serverUpdate } from '../packetDef';
+import { createWorld, fullServerSend, serverDeleted, serverUpdate } from '../packetDef';
 import { clearTimeout } from "timers";
 import { permissionsFileToBPermissions, propertiesFileToBProperties } from '../localUtil';
 import Player from "./Player";
@@ -12,6 +12,8 @@ import Player from "./Player";
 import * as fs from 'fs-extra';
 import { ServerProcess } from "./ServerProcess";
 import PluginSystem from "./Plugins";
+import DatabaseConnection from "./DatabaseConnection";
+import { servers } from "..";
 // const fsprom = require('fs').promises;
 const path = require('path');
 
@@ -613,11 +615,34 @@ export abstract class BServer {
             if (this.getUserPermissionLevel(user.id) & LocalPermissions.CAN_VIEW) {
                 if(user.socket) user.socket.emit('clobberAll', { server: await this.createSmallVersion(user.id) });
             }
-        })
+        });
         // Server.io.emit('clobberAll', data);
     }
-    delete() {
-        // FIXME: Not implemented
+    async delete(deleteData: boolean) {
+        console.log(`DELETING server id ${this.id} ${deleteData ? '' : 'not '}including files`);
+        servers.delete(this.id);
+        if(deleteData) {
+            try {
+                await fs.remove(this.path);
+            } catch (e) {
+                console.log(`Error deleting: ${e}`);
+            }
+        }
+        await DatabaseConnection.query({
+            text: `DELETE FROM servers WHERE id = $1`,
+            values: [this.id]
+        });
+        Server.dataFromId.forEach(async user => {
+            if (this.getUserPermissionLevel(user.id) & LocalPermissions.CAN_VIEW) {
+                if(user.socket) {
+                    const data: serverDeleted = {
+                        serverId: this.id
+                    }
+                    user.socket.emit('serverDeleted', data);
+
+                }
+            }
+        });
     }
     abstract updateCommand(): void;
     async queryCreated() {
@@ -636,12 +661,3 @@ export enum LocalPermissions {
     CAN_EDIT_PERMISSIONS = 0b0001000000,
     IS_CREATOR_OF_SERVER = 0b0010000000
 }
-// Map.prototype.inspect = function() {
-//     return `Map(${mapEntriesToString(this.entries())})`
-//   }
-  
-  function mapEntriesToString(entries) {
-    return Array
-      .from(entries, ([k, v]) => `\n  ${k}: ${v}`)
-      .join("") + "\n";
-  }

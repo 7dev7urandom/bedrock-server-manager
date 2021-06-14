@@ -119,6 +119,21 @@ interface uploadGitRepo {
     repo: string;
 }
 
+interface installPlugin {
+    serverId: number;
+    name: string;
+}
+
+interface updatePlugin {
+    serverId: number;
+    plugin: string;
+}
+
+interface removePlugin {
+    serverId: number;
+    plugin: string;
+}
+
 interface updateGit {
     serverId: number;
     plugin: string;
@@ -183,6 +198,10 @@ interface fullServerSend {
 
 interface serverDeleted {
     serverId: number;
+}
+interface deleteServer {
+    serverId: number;
+    deleteData: boolean;
 }
 
 interface refreshDB {}

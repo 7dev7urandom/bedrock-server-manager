@@ -19,6 +19,7 @@ import Player from './Player';
 
 export interface BDSXServerUpdate extends serverUpdate {
     scriptingTabs?: ScriptingTab[];
+    plugins?: BDSXPlugin[];
 }
 
 interface ScriptingTab {
@@ -47,8 +48,8 @@ interface NumberScriptingTabValue extends ScriptingTabValue {
 
 export interface BDSXPlugin {
     name: string;
-    repo: string | null;
-    dateEdited: Date;
+    repo: string | "Public npm package" | null;
+    dateEdited: Date | string;
 }
 
 export class BDSXServer extends BServer {
@@ -61,11 +62,7 @@ export class BDSXServer extends BServer {
     isConnectedToProcSocket: boolean = false;
     extraScriptingTabs: ScriptingTab[] = [];
     socket: socketio.Socket;
-    extraData: {
-        plugins: BDSXPlugin[];
-    } = {
-        plugins: []
-    };
+    plugins: BDSXPlugin[] = [];
 
     constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
         super(id, desc, BDSXServer.wineName ? autostart : false, path.join(serverPath, 'bedrock_server'), version, allowedusers, whitelist);
@@ -80,23 +77,44 @@ export class BDSXServer extends BServer {
         //     };
         // })();
         (async () => {
-            // TODO: check that this works in win32 and 
+            // TODO: check that this works in win32 and unix
             try {
-                
-                for(const pluginName in await fs.readdir(path.join(this.mainPath, 'plugins'))) {
+                const filearr = await fs.readdir(path.join(this.mainPath, 'plugins'), {
+                    withFileTypes: true
+                });
+                for(const data of filearr) {
+                    // const isDirectory = data.isDirectory;
+                    const pluginName = data.name;
+                    // console.log(isDirectory);
+                    // const x = isDirectory();
+                    // console.log("test");
+                    if(data.isFile() || data.isFIFO()) continue;
                     const [{ ctime: creationTime }, repoUrl] = await Promise.all([
                         fs.stat(path.join(this.mainPath, 'plugins', pluginName, '.git', 'FETCH_HEAD')),
                         new Promise((r: (url: string) => void) => {
-                            exec('git config --get remote.origin.url', { cwd: this.mainPath, env }, (err, out) => {
+                            exec('git config --get remote.origin.url', { cwd: path.join(this.mainPath, 'plugins', pluginName), env }, (err, out) => {
                                 if(err) throw err;
                                 r(out);
                             });
                         })
                     ]);
-                    this.extraData.plugins.push({
+                    this.plugins.push({
                         dateEdited: creationTime,
                         repo: repoUrl,
                         name: pluginName
+                    });
+                }
+            } catch (e) {
+                // console.log(e);
+            }
+            try {
+                const packagejson = await fs.readJson(path.join(this.mainPath, 'package.json'));
+                for(let pluginName in packagejson.dependencies) {
+                    if(!pluginName.startsWith("@bdsx/") || this.plugins.find(x => x.name === pluginName.replace("@bdsx/", ""))) return;
+                    this.plugins.push({
+                        dateEdited: packagejson.dependencies[pluginName],
+                        repo: "Public npm package",
+                        name: pluginName.substring("@bdsx/".length)
                     });
                 }
             } catch {}
@@ -164,11 +182,15 @@ export class BDSXServer extends BServer {
         }
     }
     clobberWorld(data: BDSXServerUpdate) {
-        if(data.scriptingTabs && !(LocalPermissions.CAN_EDIT_PROPERTIES)) data.scriptingTabs = undefined;
+        // if(data.scriptingTabs && !(LocalPermissions.CAN_EDIT_PROPERTIES)) data.scriptingTabs = undefined;
+        // if(data.plugins && !(LocalPermissions.CAN_EDIT_PROPERTIES))
         super.clobberWorld(data);
     }
     sendAll(socket: SocketIO.Socket, additionalData: any = {}) {
-        super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? { scriptingTabs: this.extraScriptingTabs } : {}));
+        super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? { 
+            scriptingTabs: this.extraScriptingTabs,
+            plugins: this.plugins
+        } : {}));
     }
     
     static wineNameFound() {
@@ -340,10 +362,14 @@ export class BDSXServer extends BServer {
             }
             await fs.move(path.join(this.mainPath, 'plugins', '.tmp'), pluginPath);
         }
-        this.extraData.plugins.push({
+        if(name.startsWith("@bdsx/")) name = name.replace("@bdsx/", "");
+        this.plugins.push({
             name,
             dateEdited: new Date(),
             repo
+        });
+        this.clobberWorld({
+            plugins: this.plugins
         });
         return true;
     }
@@ -366,24 +392,49 @@ export class BDSXServer extends BServer {
             return false;
         }
         await fs.move(path.join(this.mainPath, 'plugins', '.tmp'), pluginDir);
-        this.extraData.plugins.push({
-            name,
+        this.plugins.push({
+            name: name.replace("@bdsx/", ""),
             dateEdited: new Date(),
             repo: null
+        });
+        this.clobberWorld({
+            plugins: this.plugins
         });
         return true;
     }
     async addPublicPlugin(pluginName: string): Promise<boolean> {
-        if(!/@bdsx\//.test(pluginName)) {
-            return false;
-        }
-        await this.execInDirProm(`npm i "${pluginName}"`);
-        this.extraData.plugins.push({
-            name: pluginName,
-            dateEdited: new Date(),
+        if(!BDSXServer.checkNpmName(pluginName, true)) return false;
+        await this.execInDirProm(`npm i ${pluginName}`);
+        const json = await fs.readJson(path.join(this.mainPath, 'package.json'));
+        let date: Date | string = new Date();
+        try {
+            date = json.dependencies[pluginName];
+        } catch {}
+        if(!date) return false;
+        this.plugins.push({
+            name: pluginName.replace("@bdsx/", ""),
+            dateEdited: date,
             repo: "Public npm package"
         });
+        this.clobberWorld({
+            plugins: this.plugins
+        });
         return true;
+    }
+    async removePlugin(pluginName: string) {
+        const plugin = this.plugins.findIndex(x => x.name === pluginName);
+        if(!this.plugins[plugin]) return;
+        if(!BDSXServer.checkNpmName(pluginName)) return;
+        if(this.plugins[plugin].repo === 'Public npm package') {
+            await this.execInDirProm(`npm uninstall @bdsx/${pluginName}`);
+        } else {
+            // zips and git repos are removed the same way
+            await fs.remove(path.join(this.mainPath, 'plugins', pluginName));
+        }
+        this.plugins.splice(plugin, 1);
+        this.clobberWorld({
+            plugins: this.plugins
+        });
     }
     async execInDirProm(command, env?): Promise<void> {
         return new Promise((r) => {
@@ -392,9 +443,33 @@ export class BDSXServer extends BServer {
         });
     }
     async updatePlugin(pluginName: string) {
-        return new Promise((r) => {
-            const proc: ChildProcess = exec(`git pull`, { cwd: path.join(this.mainPath, 'plugins', pluginName) });
-            proc.on('close', r);
+        const plugin = this.plugins.find(x => x.name === pluginName);
+        if(!plugin) return;
+        if(!BDSXServer.checkNpmName(pluginName)) return;
+        if(plugin.repo === 'Public npm package') {
+            await this.execInDirProm(`npm install @bdsx/${pluginName}@latest`);
+            try {
+                const json = await fs.readJson(path.join(this.mainPath, 'package.json'));
+                if(json.dependencies["@bdsx/" + pluginName]) {
+                    plugin.dateEdited = json.dependencies["@bdsx" + pluginName];
+                }
+            } catch (e) {
+                console.trace("Ignoring error reading package.json file. ID=" + this.id);
+            }
+            return;
+        }
+        if(plugin.repo) {
+            console.log(await new Promise((r) => {
+                const proc: ChildProcess = exec(`git pull`, { cwd: path.join(this.mainPath, 'plugins', pluginName) });
+                proc.on('close', r);
+            }));
+            plugin.dateEdited = new Date();
+        }
+        this.clobberWorld({
+            plugins: this.plugins
         });
+    }
+    static checkNpmName(name: string, withScope = false) {
+        return withScope ? /^@bdsx\/[a-z\-]*$/.test(name) : /^[a-z\-]*$/.test(name);
     }
 }
