@@ -1,13 +1,13 @@
 {
     "db": {
         "user": "bsm",
-        "password": "bedrock-secret-server-pa$$",
+        "password": "<yourpassword>",
         "host": "localhost",
         "database": "bsm",
         "software": "mysql"
     },
-    "basePath": "C:\\Users\\micah\\Documents\\code\\copy\\bedrock-server-manager\\basePath",
-    "bdsDownloads": "C:\\Users\\micah\\Documents\\code\\copy\\bedrock-server-manager\\basePath\\bdsDownloads",
+    "basePath": "/path/to/basePath",
+    "bdsDownloads": "/path/to/basePath/bdsDownloads",
     "server": {
         "host": "0.0.0.0",
         "port": 3000
