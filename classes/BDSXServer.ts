@@ -1,7 +1,6 @@
 import { userIdNum, Server, GlobalPermissions } from '../Server';
-import { BServer, LocalPermissions } from './BServer';
+import { BServer } from './BServer';
 import DatabaseConnection from './DatabaseConnection';
-import { wgetToFile } from '../localUtil';
 import { config } from '../Constants';
 const path = require('path');
 import * as fs from 'fs-extra';
@@ -32,18 +31,18 @@ interface ScriptingTabValue {
     name: string;
     id: string;
 }
-interface BooleanScriptingTabValue extends ScriptingTabValue {
-    type: "boolean";
-    value: boolean;
-}
-interface StringScriptingTabValue extends ScriptingTabValue {
-    type: "string";
-    value: string;
-}
-interface NumberScriptingTabValue extends ScriptingTabValue {
-    type: "number";
-    value: number;
-}
+// interface BooleanScriptingTabValue extends ScriptingTabValue {
+//     type: "boolean";
+//     value: boolean;
+// }
+// interface StringScriptingTabValue extends ScriptingTabValue {
+//     type: "string";
+//     value: string;
+// }
+// interface NumberScriptingTabValue extends ScriptingTabValue {
+//     type: "number";
+//     value: number;
+// }
 
 export interface BDSXPlugin {
     name: string;
@@ -108,7 +107,7 @@ export class BDSXServer extends BServer {
             }
             try {
                 const packagejson = await fs.readJson(path.join(this.mainPath, 'package.json'));
-                for(let pluginName in packagejson.dependencies) {
+                for(const pluginName in packagejson.dependencies) {
                     if(!pluginName.startsWith("@bdsx/") || this.plugins.find(x => x.name === pluginName.replace("@bdsx/", ""))) return;
                     this.plugins.push({
                         dateEdited: packagejson.dependencies[pluginName],
@@ -148,12 +147,12 @@ export class BDSXServer extends BServer {
         });
         socket.on("changeSetting", ({ tab, id, value }) => {
             this.extraScriptingTabs
-                .find(tabName => tabName.name === tab).properties
-                .find(prop => prop.id === id).value = value;
+            .find(tabName => tabName.name === tab).properties
+            .find(prop => prop.id === id).value = value;
             this.clobberWorld({ scriptingTabs: this.extraScriptingTabs });
         });
         socket.on("getPlayers", () => {
-          socket.emit("playerList", Array.from(Player.nameToPlayer.keys()));
+            socket.emit("playerList", Array.from(Player.nameToPlayer.keys()));
         });
         socket.on('disconnect', () => {
             this.extraScriptingTabs = [];
@@ -164,13 +163,13 @@ export class BDSXServer extends BServer {
     spawn() {
         const env = Object.assign({}, process.env);
         env.NODE_OPTIONS = undefined;
-        if(process.platform == 'win32') {
+        if(process.platform === 'win32') {
             const proc = exec(`bedrock_server.exe ..`, {
                 cwd: this.path,
                 env
             });
             return new ServerProcess(proc);
-        } else if (process.platform == 'linux') {
+        } else if (process.platform === 'linux') {
             env.WINEDEBUG = "-all";
             // IPty spawn
             return new ServerProcess(spawn(BDSXServer.wineName, [`bedrock_server.exe`, `..`], {
@@ -186,12 +185,12 @@ export class BDSXServer extends BServer {
         super.clobberWorld(data);
     }
     sendAll(socket: SocketIO.Socket, additionalData: any = {}) {
-        super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? { 
+        super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? {
             scriptingTabs: this.extraScriptingTabs,
             plugins: this.plugins
         } : {}));
     }
-    
+
     static wineNameFound() {
         this.serverQueue.forEach(server => {
             server.start();
@@ -201,6 +200,7 @@ export class BDSXServer extends BServer {
         let text = "Loading...";
         let currentProg = 0;
         // Get the socket for sending updates on creation progress. If there is no socket then our emits will do nothing but throw no error
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         const socket = Server.dataFromId.get(creatorId).socket ? Server.dataFromId.get(creatorId).socket : { emit() {} };
         function updateProgress(textInput?: string, percent?: number) {
             if(textInput) {
@@ -209,8 +209,7 @@ export class BDSXServer extends BServer {
             if(percent) {
                 if(currentProg !== percent) socket.emit("progressBar", { id: progressBarId, text, progress: Math.floor(percent) });
                 currentProg = percent;
-            }
-            else {
+            } else {
                 // socket.emit("progressBar", { id: progressBarId, text, progress: Math.round(Math.min(progresses.reduce((old, cur) => old + (cur.reduce((old, cur) => old + cur, 0)), 0), 100))});
             }
         }
@@ -234,7 +233,7 @@ export class BDSXServer extends BServer {
         }
         sPath += suffix;
         await Promise.all([fs.ensureDir(sPath), fs.ensureDir(config.bdsDownloads)]);
-        
+
         DatabaseConnection.query({
             text: "UPDATE servers SET path = $1 WHERE id = $2",
             values: [sPath, id]
@@ -327,7 +326,7 @@ export class BDSXServer extends BServer {
         this.command = {
             'win32': `(cd ${this.path} & bedrock_server.exe)`,
             'linux': `cd ${this.path} && WINEDEBUG=-all ${BDSXServer.wineName} bedrock_server.exe`
-        }[process.platform]
+        }[process.platform];
     }
     async addPlugin(repo: string, name?: string): Promise<boolean> {
         let pluginPath = path.join(this.mainPath, 'plugins', name ?? '.tmp');
@@ -385,7 +384,7 @@ export class BDSXServer extends BServer {
             await fs.remove(tmpDir);
             return false;
         }
-        const pluginDir = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""))
+        const pluginDir = path.join(this.mainPath, 'plugins', name.replace("@bdsx/", ""));
         if(!/@bdsx\//.test(name) || fs.pathExists(pluginDir)) {
             await fs.remove(path.join(this.mainPath, 'plugins', '.tmp'));
             return false;
@@ -469,10 +468,10 @@ export class BDSXServer extends BServer {
         });
     }
     static checkNpmName(name: string, withScope = false) {
-        return withScope ? /^@bdsx\/[a-z\-]*$/.test(name) : /^[a-z\-]*$/.test(name);
+        return withScope ? /^@bdsx\/[a-z-]*$/.test(name) : /^[a-z-]*$/.test(name);
     }
 }
-if(process.platform == 'win32') {
+if(process.platform === 'win32') {
     BDSXServer.wineName = true; // Doesn't matter, won't be used. Must be truthy
     BDSXServer.wineNameFound();
 } else {

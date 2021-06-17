@@ -38,7 +38,7 @@ export default class DatabaseConnection {
             } else {
                 console.error("Unrecognized db server " + this.type);
             }
-        })
+        });
     }
     static async query(object): Promise<{ rows: any[] }> {
         // console.log("Database query " + object.text + " with values " + JSON.stringify(object.values));
@@ -47,7 +47,7 @@ export default class DatabaseConnection {
         if(this.type === 'mysql')
             return new Promise((r, rej) => {
                 let query: string = object.text;
-                let args = [];
+                const args = [];
                 query = query.replace(/\$(\d)/g, (match, num) => {
                     args.push(object.values[parseInt(num) - 1]);
                     return '?';
@@ -66,7 +66,7 @@ export default class DatabaseConnection {
         if(this.type === 'mysql')
             return new Promise((r, rej) => {
                 let query: string = object.text;
-                let args = [];
+                const args = [];
                 query = query.replace(/\$(\d)/g, (match, num) => {
                     args.push(object.values[parseInt(num) - 1]);
                     return '?';

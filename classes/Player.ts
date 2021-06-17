@@ -11,7 +11,7 @@ export default class Player {
         Player.xuidToPlayer.set(xuid, this);
         Player.nameToPlayer.set(username, this);
         if(addToDb) {
-            if(DatabaseConnection.type == 'postgresql') {
+            if(DatabaseConnection.type === 'postgresql') {
                 DatabaseConnection.query({
                     text: "INSERT INTO players (username, xuid) VALUES ($1, $2) ON CONFLICT (xuid) DO UPDATE SET username = $1",
                     values: [username, xuid]
@@ -20,7 +20,7 @@ export default class Player {
                 DatabaseConnection.query({
                     text: "INSERT INTO players (username, xuid) values ($1, $2) ON DUPLICATE KEY UPDATE username = $1",
                     values: [username, xuid]
-                })
+                });
             }
         }
     }

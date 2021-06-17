@@ -1,7 +1,5 @@
 import { createHash, randomBytes } from "crypto";
 import { Server } from "../Server";
-import path = require("path");
-import { propertiesFileToBProperties, permissionsFileToBPermissions } from "../localUtil";
 import { serverUpdate } from "../packetDef";
 import { BServer, LocalPermissions } from "./BServer";
 import DatabaseConnection from "./DatabaseConnection";
@@ -15,26 +13,26 @@ export default class Database {
     static async verifyTables() {
         await Promise.all([
             DatabaseConnection.query({
-                text: DatabaseConnection.type == 'mysql' ? 
-                    'CREATE TABLE IF NOT EXISTS servers (id int NOT NULL AUTO_INCREMENT, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, type varchar(15), PRIMARY KEY(id))' 
+                text: DatabaseConnection.type === 'mysql' ?
+                    'CREATE TABLE IF NOT EXISTS servers (id int NOT NULL AUTO_INCREMENT, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, type varchar(15), PRIMARY KEY(id))'
                     : 'CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, path varchar(100), allowedusers JSON, description varchar(100), version varchar(15), autostart boolean, type varchar(15))'
             }),
             DatabaseConnection.query({
                 text: 'CREATE TABLE IF NOT EXISTS players (username varchar(15), xuid varchar(20))'
             }),
             DatabaseConnection.query({
-                text: DatabaseConnection.type == 'mysql' ? 
+                text: DatabaseConnection.type === 'mysql' ?
                     'CREATE TABLE IF NOT EXISTS users (id int NOT NULL AUTO_INCREMENT, username varchar(20) NOT NULL, password char(32) NOT NULL, perm varchar(20), globalpermissions smallint, PRIMARY KEY(id))' :
                     'CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username varchar(20) NOT NULL, password char(32) NOT NULL, perm varchar(20), globalpermissions smallint)'
             })
         ]);
         if ((await DatabaseConnection.query({
             text: 'SELECT * FROM users'
-        })).rows.length == 0) {
+        })).rows.length === 0) {
             const password = this.generateRandomString(Math.floor(Math.random() * 3) + 8);
             const hash = createHash('md5').update(password).digest('hex');
             console.log(`No users found in database. Creating admin user 'admin' with password '${password}' and perm 'Superadmin'`);
-            const id = await DatabaseConnection.insertQueryReturnId({ 
+            await DatabaseConnection.insertQueryReturnId({
                 text: "INSERT INTO users (username, password, perm, globalpermissions) VALUES ('admin', $1, 'Superadmin', 255)",
                 values: [hash]
             });
@@ -60,16 +58,16 @@ export default class Database {
         }).then(result => {
             BServer.initTotalServers = result.rows.length;
             result.rows.forEach(server => {
-                    let allowedUsers = DatabaseConnection.type == 'mysql' ? JSON.parse(server.allowedusers) : server.allowedusers;
-                    switch (server.type) {
-                        case 'vanilla':
-                            servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
-                            break;
-                        case 'bdsx':
-                            servers.set(server.id, new BDSXServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
-                            break;
-                    }
-                    serversArrProms.push(servers.get(server.id).queryCreated());
+                const allowedUsers = DatabaseConnection.type === 'mysql' ? JSON.parse(server.allowedusers) : server.allowedusers;
+                switch (server.type) {
+                case 'vanilla':
+                    servers.set(server.id, new VanillaServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
+                    break;
+                case 'bdsx':
+                    servers.set(server.id, new BDSXServer(server.id, server.description, server.autostart, server.path, server.version, allowedUsers));
+                    break;
+                }
+                serversArrProms.push(servers.get(server.id).queryCreated());
             });
         }));
         proms.push(DatabaseConnection.query({
@@ -92,7 +90,7 @@ export default class Database {
                     password: user.password,
                     secretString: null
                 });
-            })
+            });
         }));
         await Promise.all(proms);
         Promise.all(serversArrProms).then(() => BServer.startQueuedServers());
@@ -114,23 +112,17 @@ export default class Database {
                 const currentServer = servers.get(dbServer.id);
                 if(!currentServer) {
                     // A new server was added to the database. Initialize it.
-                    const propertiesPromise = propertiesFileToBProperties(path.join(dbServer.path, "server.properties"));
-                    const permissionsPromise = permissionsFileToBPermissions(path.join(dbServer.path, "permissions.json"));
-                    Promise.all([propertiesPromise, permissionsPromise]).then(([properties, permissions]) => {
-                        let allowedUsers = DatabaseConnection.type == 'mysql' ? JSON.parse(dbServer.allowedusers) : dbServer.allowedusers;
-                        switch (dbServer.type) {
-                            case 'vanilla':
-                                // @ts-ignore
-                                servers.set(dbServer.id, new VanillaServer(dbServer.id, dbServer.description, dbServer.autostart, properties, permissions, dbServer.path, dbServer.version, allowedUsers));
-                                break;
-                            case 'bdsx':
-                                // @ts-ignore
-                                servers.set(dbServer.id, new BDSXServer(dbServer.id, dbServer.description, dbServer.autostart, properties, permissions, dbServer.path, dbServer.version, allowedUsers));
-                                break;
-                        }
+                    const allowedUsers = DatabaseConnection.type === 'mysql' ? JSON.parse(dbServer.allowedusers) : dbServer.allowedusers;
+                    switch (dbServer.type) {
+                    case 'vanilla':
+                        servers.set(dbServer.id, new VanillaServer(dbServer.id, dbServer.description, dbServer.autostart, dbServer.path, dbServer.version, allowedUsers));
+                        break;
+                    case 'bdsx':
+                        servers.set(dbServer.id, new BDSXServer(dbServer.id, dbServer.description, dbServer.autostart, dbServer.path, dbServer.version, allowedUsers));
+                        break;
+                    }
                         // Inform everyone that there is a new server
-                        servers.get(dbServer.id).clobberAll();
-                    });
+                    servers.get(dbServer.id).clobberAll();
                 } else {
                     // Check if there were any changes to the server in the database
                     if(dbServer.path !== currentServer.path) {
@@ -138,11 +130,11 @@ export default class Database {
                         currentServer.updateCommand();
                     }
                     const changes: serverUpdate = {};
-                    const au = DatabaseConnection.type == 'mysql' ? (dbServer.allowedusers) : JSON.stringify(dbServer.allowedusers);
+                    const au = DatabaseConnection.type === 'mysql' ? (dbServer.allowedusers) : JSON.stringify(dbServer.allowedusers);
                     if(au !== JSON.stringify(currentServer.allowedUsers)) {
                         // Not going to worry about dynamically updating, we'll update but we aren't sending packets.
                         const tmpallowedUsers = JSON.parse(au);
-                        for (let user in tmpallowedUsers) {
+                        for (const user in tmpallowedUsers) {
                             currentServer.allowedUsers.set(parseInt(user), tmpallowedUsers[user]);
                         }
                         changes.allowedUsers = Array.from(currentServer.allowedUsers.entries()).map(([userId, val]) => {
@@ -160,7 +152,7 @@ export default class Database {
                         currentServer.clobberAll();
                     }
                     if(dbServer.autostart !== currentServer.autostart) {
-                        // Again not going to start it if true because this is only applicable on startup. 
+                        // Again not going to start it if true because this is only applicable on startup.
                         currentServer.autostart = dbServer.autostart;
                         changes.properties = currentServer.properties;
                     }
@@ -179,8 +171,8 @@ export default class Database {
                         }
                     });
                     servers.delete(server.id);
-                } 
-            })
+                }
+            });
         }));
 
         proms.push(DatabaseConnection.query({
@@ -226,7 +218,7 @@ export default class Database {
                     }
                     Server.dataFromId.delete(id);
                 }
-            })
+            });
         }));
         proms.push(DatabaseConnection.query({
             text: "SELECT * FROM players"

@@ -27,7 +27,7 @@ export default class PluginSystem {
     static serverStarted(server: BServer) {
         this.serverStartedListeners.forEach(x => {
             try {
-                x(server)
+                x(server);
             } catch (e) {
                 console.warn("Error executing plugin: " + e);
             }

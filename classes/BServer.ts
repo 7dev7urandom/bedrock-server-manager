@@ -2,7 +2,7 @@ import { BWorld } from "./BWorld";
 import BPermission from './BPermissions';
 import { BProperties } from './BProperties';
 import { Socket } from "socket.io";
-import { Server, GlobalPermissions } from '../Server'
+import { Server, GlobalPermissions } from '../Server';
 import { createWorld, fullServerSend, serverDeleted, serverUpdate } from '../packetDef';
 import { clearTimeout } from "timers";
 import { permissionsFileToBPermissions, propertiesFileToBProperties } from '../localUtil';
@@ -81,7 +81,7 @@ export abstract class BServer {
         Player.xuidToPlayer.forEach(p => {
             if(perms.get(p.xuid)) return;
             perms.set(p.xuid, { player: p, permission: "default"});
-        })
+        });
         return perms;
     }
 
@@ -108,7 +108,7 @@ export abstract class BServer {
         // this.getData().then(() => {
         // });
         // console.log(mapEntriesToString(allowedusers));
-        for (let user in allowedusers) {
+        for (const user in allowedusers) {
             // console.log(result.rows[0].user);
             this.allowedUsers.set(parseInt(user), allowedusers[user]);
         }
@@ -121,8 +121,7 @@ export abstract class BServer {
                 dirhandle.filter(dir => dir.isDirectory()).forEach(dir => {
                     this.worlds[dir.name] = (new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
                 });
-            }
-            finally {}
+            } catch {}
         })();
         this.prepServer().then(() => this.prepQuery.forEach(x => x()));
     }
@@ -139,7 +138,7 @@ export abstract class BServer {
         await this.properties.commit(path.join(this.path, 'server.properties'));
 
         this.specPermissions = new Map(permissions.map(p => [p.player.xuid, p]));
-        
+
         // Start if autostart
         if(!BServer.isLaunched) BServer.initTotalServers--;
         if(this.autostart) {
@@ -155,7 +154,7 @@ export abstract class BServer {
         try {
             if (Server.dataFromId.get(user).globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL) return 255;
         } catch (e) {
-            console.log("error: " + Array.from(Server.dataFromId.entries()))
+            console.log("error: " + Array.from(Server.dataFromId.entries()));
         }
         return this.allowedUsers.get(user) ?? 0;
     }
@@ -191,7 +190,7 @@ export abstract class BServer {
         // this.proc = exec(`(cd ${this.path}; LD_LIBRARY_PATH=. ./bedrock_server)`);
         // Temporary for test dev
         // let command;
-        // if(this.description == 'A real genuine test of the software') {
+        // if(this.description === 'A real genuine test of the software') {
         // let command = START_COMMAND;
         // } else {
 
@@ -202,9 +201,9 @@ export abstract class BServer {
         this.proc = this.spawn();
         // this.proc.on('data', data => console.error("The server gave an error message: " + data.toString()));
         this.proc.on('data', bytedata => {
-            let data: string = bytedata.toString();
+            const data: string = bytedata.toString();
             // console.log("data from server id " + this.id + ": " + data);
-            // if(this.description == 'A real genuine test of the software') console.log(data);
+            // if(this.description === 'A real genuine test of the software') console.log(data);
             this.pendingData += data;
             const lines = this.pendingData.split("\n");
             this.pendingData = lines.pop();
@@ -212,7 +211,7 @@ export abstract class BServer {
                 // Fix for IPty instances that repeat the input with backspaces characters every char
                 if(line.includes('\b')) return;
                 this.recvData(line + '\n');
-            })
+            });
         });
         this.proc.on('exit', async (code, signal) => {
             if(code !== 0 && this.status !== 'Stopping') {
@@ -254,10 +253,10 @@ export abstract class BServer {
         return new Promise(resolve => {
             if(this.status === 'Stopped' || this.status === "Stopping") {
                 return resolve();
-            };
+            }
             this.sendData("stop");
             this.status = "Stopping";
-    
+
             this.clobberAll();
             this.stopTimer = setTimeout(() => {
                 this.proc.kill();
@@ -267,10 +266,10 @@ export abstract class BServer {
             this.queuedTasks.push(() => {
                 resolve();
             });
-        })
+        });
     }
     backupHold(): Promise<[string, number][] | string> {
-        return new Promise(async resolve => {
+        return new Promise(resolve => {
             if(this.status === 'Stopped') {
                 // const paths = (await fs.readdir(path.join(this.path, 'worlds', this.currentWorld)));
                 resolve(path.join(this.path, 'worlds', this.currentWorld));
@@ -285,7 +284,7 @@ export abstract class BServer {
         });
     }
     async recvData(data: string) {
-        // if(this.description == 'A real genuine test of the software') console.log(data);
+        // if(this.description === 'A real genuine test of the software') console.log(data);
         if (data.includes("Running AutoCompaction..."))
             return;
         if(this.status === "Starting" && data.trim().includes("INFO] Server started."))  {
@@ -299,23 +298,24 @@ export abstract class BServer {
             let dirhandle;
             try {
                 const pathToWorldsFolder = path.join(this.path, 'worlds');
-                await fs.mkdir(pathToWorldsFolder).catch(() => {});
+                try {
+                    await fs.mkdir(pathToWorldsFolder);
+                } catch {}
                 dirhandle = (await fs.readdir(pathToWorldsFolder, { withFileTypes: true }));
                 dirhandle.filter(dir => dir.isDirectory()).forEach(dir => {
                     this.worlds[dir.name] = (new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
                 });
                 this.clobberWorld({ worlds: this.worlds });
                 //.map(dir => new BWorld(this.id, dir.name, path.join(pathToWorldsFolder, dir.name)));
-                
+
                 // console.log(dirhandle);
                 // this.worlds = dirhandle;
-            } finally {}
+            } catch {}
             PluginSystem.serverStarted(this);
             this.clobberAll();
-        }
-        else if(this.status === "Stopping" && data.endsWith("Quit correctly\n")) {
+        } else if(this.status === "Stopping" && data.endsWith("Quit correctly\n")) {
             // Stopped correctly, not doing anything with this info currently
-        } else if (this.status == "Running" && data.includes("Player connected")) {
+        } else if (this.status === "Running" && data.includes("Player connected")) {
             const regex = /\[INFO\] Player connected: (\w+), xuid: (\d+)/.exec(data);
             const username = regex[1];
             const xuid = regex[2];
@@ -328,7 +328,7 @@ export abstract class BServer {
             }
             this.onlinePlayers.add(Player.xuidToPlayer.get(xuid));
             this.clobberAll();
-        } else if (this.status == "Running" && data.includes("Player disconnected")) {
+        } else if (this.status === "Running" && data.includes("Player disconnected")) {
             const regex = /\[INFO\] Player disconnected: (\w+), xuid: (\d+)/.exec(data);
             const username = regex[1];
             const xuid = regex[2];
@@ -355,7 +355,7 @@ export abstract class BServer {
             f(data);
         });
         this.expectLine = [];
-        
+
         // Run backup
         if(data.includes("Data saved. Files are now ready to be copied.") && this.queryInterval) {
             clearInterval(this.queryInterval);
@@ -385,14 +385,14 @@ export abstract class BServer {
 
         this.output += data;
         this.saveLog(data);
-        for (let callback of (this.subscriptions.get('stdout') ?? [])) {
+        for (const callback of (this.subscriptions.get('stdout') ?? [])) {
             callback(data, this.output);
         }
-        
+
         this.clobberWorld({ consoleAppend: data });
     }
     commitPermissions() {
-        let obj = [];
+        const obj = [];
         Array.from(this.permissions.values()).forEach(perm => {
             if(perm.permission !== 'default')
                 obj.push({ permission: perm.permission, xuid: perm.player.xuid });
@@ -427,7 +427,7 @@ export abstract class BServer {
             });
             return;
         }
-        // Write output to log file 
+        // Write output to log file
         fs.appendFile(pathToLog, `${Date.now()} ` + toAppend, err => {
             if (err) throw err;
             // console.log("pathToLog: " + pathToLog, "toAppend: " + toAppend);
@@ -447,7 +447,7 @@ export abstract class BServer {
                 !(this.getUserPermissionLevel(userId) & LocalPermissions.CAN_VIEW)
                 && !(Server.dataFromId.get(userId).globalPermissions & GlobalPermissions.CAN_OVERRIDE_LOCAL)
             )
-        ) 
+        )
             return;
         // if(!this.dataFetched)
         //     await this.getData();
@@ -488,12 +488,12 @@ export abstract class BServer {
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_USE_CONSOLE)) tmpData.consoleAppend = undefined;
             if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PROPERTIES)) tmpData.permissions = undefined;
             if(!(userdata.globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) tmpData.extraData = undefined;
-            
-            if(userdata.selectedServer == this.id) {
+
+            if(userdata.selectedServer === this.id) {
                 // console.log("Sending to user id " + userdata.id + " data " + data.status);
                 userdata.socket.emit("serverUpdate", tmpData);
             }
-        })
+        });
     }
 // #endregion
     sendAll(socket: Socket, additionalData: any = {}) {
@@ -504,7 +504,7 @@ export abstract class BServer {
         // CAN_VIEW permission should already be checked, but check again to make sure
         if(!(permLevel & LocalPermissions.CAN_VIEW)) return;
 
-        let allowedUsers2 = [];
+        const allowedUsers2 = [];
         // Don't do allowedUsers inline because there are several steps
         if(permLevel & LocalPermissions.CAN_EDIT_PERMISSIONS) {
             const done = new Set();
@@ -516,7 +516,7 @@ export abstract class BServer {
                     name: user.username,
                     perm: user.perm,
                     access: val
-                })
+                });
                 done.add(key);
             });
             // Add all the other ones in case the aren't in there already so that all users are in the list
@@ -528,11 +528,11 @@ export abstract class BServer {
                     name: val.username,
                     perm: val.perm,
                     access
-                })
-            })
+                });
+            });
         }
         const props = Object.assign({}, this.properties);
-        props['autostart'] = this.autostart
+        props['autostart'] = this.autostart;
         // Make a new object to populate with required fields
         const serverData: fullServerSend = {
             id: this.id,
@@ -573,15 +573,15 @@ export abstract class BServer {
             await this.start();
             this.worlds[name].generated = true;
             this.clobberWorld({ worlds: this.worlds, properties: this.properties });
-        }
-        if(this.status == "Stopped") {
+        };
+        if(this.status === "Stopped") {
             restartS();
             return;
         }
         this.queuedTasks.push(restartS);
         this.stop();
     }
-    /** 
+    /**
      * Permissions need to be checked before calling this function
      */
     async deleteWorld(name) {
@@ -593,7 +593,7 @@ export abstract class BServer {
             this.properties.commit(path.join(this.path, 'server.properties'));
             this.currentWorld = this.properties["level-name"];
         }
-        let success = await this.worlds[name].destroy();
+        const success = await this.worlds[name].destroy();
         this.worlds[name] = undefined;
         return success;
     }
@@ -604,13 +604,13 @@ export abstract class BServer {
         //     const tmpData = Object.assign({}, data);
         //     if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_EDIT_PERMISSIONS)) tmpData.allowedUsers = undefined;
         //     if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_USE_CONSOLE)) tmpData.consoleAppend = undefined;
-            
-        //     if(userdata.selectedServer == this.id) {
+
+        //     if(userdata.selectedServer === this.id) {
         //         // console.log("Sending to user id " + userdata.id + " data " + data.status);
         //         userdata.socket.emit("serverUpdate", data);
         //     }
         // })
-        
+
         Server.dataFromId.forEach(async user => {
             if (this.getUserPermissionLevel(user.id) & LocalPermissions.CAN_VIEW) {
                 if(user.socket) user.socket.emit('clobberAll', { server: await this.createSmallVersion(user.id) });
@@ -637,7 +637,7 @@ export abstract class BServer {
                 if(user.socket) {
                     const data: serverDeleted = {
                         serverId: this.id
-                    }
+                    };
                     user.socket.emit('serverDeleted', data);
 
                 }

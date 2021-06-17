@@ -30,23 +30,23 @@ export class BProperties  {
 
     commit(path: string) {
         let data = '';
-        for(let k in this) {
+        for(const k in this) {
             if(!this.hasOwnProperty(k)) continue;
             data += k + "=" + this[k] + "\n";
         }
-        
+
         return new Promise<void>((resolve, reject) => {
             fs.writeFile(path, data, err => {
                 if(err) reject(err);
                 else resolve();
             });
-        })
+        });
 
     }
     constructor(self = {}) {
         Object.getOwnPropertyNames(self).forEach(name => {
             if(!isNaN(parseInt(self[name]))) this[name] = parseInt(self[name]);
-            else if (self[name] == 'true' || self[name] == 'false') this[name] = (self[name] == 'true');
+            else if (self[name] === 'true' || self[name] === 'false') this[name] = (self[name] === 'true');
             else this[name] = self[name];
         });
         // console.log(JSON.stringify(this));

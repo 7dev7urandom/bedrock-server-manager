@@ -1,8 +1,6 @@
 const path = require('path');
 import { config } from '../Constants';
 import { wgetToFile } from '../localUtil';
-import BPermission from './BPermissions';
-import { BProperties } from './BProperties';
 import { BServer } from './BServer';
 import DatabaseConnection from './DatabaseConnection';
 import * as fs from 'fs-extra';
@@ -14,12 +12,13 @@ import { ServerProcess } from './ServerProcess';
 export class VanillaServer extends BServer {
 
     type: 'vanilla' = "vanilla";
-    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, env = {}, whitelist?: null) {
+    constructor(id: number, desc: string, autostart: boolean, serverPath: string, version: string, allowedusers, whitelist?: null) {
         super(id, desc, autostart, serverPath, version, allowedusers, whitelist);
     }
     static async createNew(name: string, desc: string, version: string, creatorId: userIdNum, progressBarId: string) {
-        let progresses: number[][] = [[0], [0], [0]];
+        const progresses: number[][] = [[0], [0], [0]];
         let text = "Loading...";
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         const socket = Server.dataFromId.get(creatorId).socket ? Server.dataFromId.get(creatorId).socket : { emit() {} };
         function updateProgress(textInput?: string, percent?: number) {
             if(textInput) {
@@ -28,17 +27,15 @@ export class VanillaServer extends BServer {
             }
             if(percent) {
                 socket.emit("progressBar", { id: progressBarId, text, progress: percent });
-            }
-            else {
+            } else {
                 socket.emit("progressBar", {
-                    id: progressBarId, 
-                    text, 
+                    id: progressBarId,
+                    text,
                     progress: Math.round(Math.min(
-                            progresses.reduce((old, cur) => 
-                                old + (cur.reduce((old, cur) => old + cur, 0) / cur.length),
+                        progresses.reduce((old, cur) => old + (cur.reduce((old, cur) => old + cur, 0) / cur.length),
                             0),
-                            100
-                        ))
+                        100
+                    ))
                 });
             }
         }
@@ -61,7 +58,7 @@ export class VanillaServer extends BServer {
         }
         sPath += suffix;
         await Promise.all([fs.ensureDir(sPath), fs.ensureDir(config.bdsDownloads)]);
-        
+
         DatabaseConnection.query({
             text: "UPDATE servers SET path = $1 WHERE id = $2",
             values: [sPath, id]
@@ -70,7 +67,7 @@ export class VanillaServer extends BServer {
         progresses[0] = [5];
         updateProgress("Downloading files...");
 
-        const BDSzipFilename = `bedrock-server-${version}.zip`
+        const BDSzipFilename = `bedrock-server-${version}.zip`;
 
         // download and unzip bds
 
@@ -109,16 +106,15 @@ export class VanillaServer extends BServer {
         }[process.platform];
     }
     spawn() {
-        if(process.platform == 'win32') {
+        if(process.platform === 'win32') {
             return new ServerProcess(exec(`bedrock_server.exe`, {
                 cwd: this.path
             }));
-        } else if (process.platform == 'linux') {
+        } else if (process.platform === 'linux') {
             return new ServerProcess(exec(path.join(this.path, `bedrock_server`), {
                 env: Object.assign({}, process.env, { LD_LIBRARY_PATH: '.' }),
                 cwd: this.path
             }));
         }
     }
-    specials() {}
 }

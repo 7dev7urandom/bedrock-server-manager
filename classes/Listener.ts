@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { GlobalPermissions, Server } from "../Server";
 import Database from "./DatabaseImpl";
-import { 
+import {
     DBRefresh,
     serverLoad,
     setPermission,
@@ -37,14 +37,13 @@ export function addListeners() {
     Server.addListener("login", (socket, dataIn) => {
         if(!dataIn.username || !dataIn.password) {
             console.log(`Invalid packet login`);
-        };
-        const data = Array.from(Server.dataFromId.values()).find(user => 
-            user.username === dataIn.username
+        }
+        const data = Array.from(Server.dataFromId.values()).find(user => user.username === dataIn.username
             && user.password === createHash('md5').update(dataIn.password).digest('hex')
         );
         if(!data) {
             // console.log(data.password);
-            console.log(Array.from(Server.dataFromId.values()))
+            console.log(Array.from(Server.dataFromId.values()));
             socket.emit("loginResult", { success: false });
             return;
         }
@@ -56,14 +55,12 @@ export function addListeners() {
             username: data.username,
             globalPermissions: data.globalPermissions,
             secretString: secStr,
-            users: data.globalPermissions & GlobalPermissions.CAN_MANAGE_OTHER_USERS ? Array.from(Server.dataFromId.values()).map(({ globalPermissions, id, perm, username }) => {
-                return {
-                    globalPermissions,
-                    id,
-                    perm,
-                    username
-                }
-            }) : undefined
+            users: data.globalPermissions & GlobalPermissions.CAN_MANAGE_OTHER_USERS ? Array.from(Server.dataFromId.values()).map(({ globalPermissions, id, perm, username }) => ({
+                globalPermissions,
+                id,
+                perm,
+                username
+            })) : undefined
         });
         if(data.socket) {
             data.socket.emit("logout");
@@ -75,9 +72,9 @@ export function addListeners() {
         Server.idFromSocket.set(socket, data.id);
     });
     Server.addListener("disconnect", (socket) => {
-        let id = Server.idFromSocket.get(socket);
+        const id = Server.idFromSocket.get(socket);
         if(!id) return;
-        let data = Server.dataFromId.get(id);
+        const data = Server.dataFromId.get(id);
         data.selectedServer = null;
         data.socket = null;
         data.secretString = null;
@@ -104,16 +101,15 @@ export function addListeners() {
                 //     Server.dataFromId.set(Server.idFromSocket.get(socket), userdata);
                 //     servers.get(results[0].id).sendAll(socket);
                 // }
-            })
-        }
-        catch (err) {
+            });
+        } catch (err) {
             // if(err instanceof ServerNotFoundError) {
             //     console.log("Server was not found in database");
             // }
             // else {
             //     console.error(err);
             // }
-            console.error(err); 
+            console.error(err);
         }
     });
     Server.addListener("serverLoad", (socket, data: serverLoad) => {
@@ -122,7 +118,7 @@ export function addListeners() {
         const server = servers.get(data.serverId);
         if(!server) return;
         if(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_VIEW) {
-            let userData = Server.dataFromId.get(userId);
+            const userData = Server.dataFromId.get(userId);
             userData.selectedServer = data.serverId;
             Server.dataFromId.set(userId, userData);
             // socket.join("sId" + data.serverId);
@@ -142,7 +138,7 @@ export function addListeners() {
         if(!properties) properties = server.properties;
         if(server.getUserPermissionLevel(Server.idFromSocket.get(socket)) & LocalPermissions.CAN_EDIT_PROPERTIES) {
             console.log(server.autostart, properties.autostart);
-            if(properties.autostart == 'undefined') properties.autostart = undefined; // Hacky fix for a bug where for some reason properties.autostart is the string undefined 
+            if(properties.autostart === 'undefined') properties.autostart = undefined; // Hacky fix for a bug where for some reason properties.autostart is the string undefined
             server.autostart = properties.autostart ?? server.autostart;
             properties.autostart = undefined;
             server.properties = new BProperties(properties);
@@ -165,16 +161,16 @@ export function addListeners() {
     });
     Server.addListener("setPermission", async (socket, { userId: id, perm, serverId: sId }: setPermission) => {
         if(!(id && (typeof perm === 'number') && sId)) return;
-        let userId = Server.idFromSocket.get(socket);
-        let user = Server.dataFromId.get(userId);
-        let server = servers.get(sId);
-        let userToChange = Server.dataFromId.get(id);
+        const userId = Server.idFromSocket.get(socket);
+        const user = Server.dataFromId.get(userId);
+        const server = servers.get(sId);
+        const userToChange = Server.dataFromId.get(id);
         if(!server || !user || !userToChange) {
             return;
         }
         if((server.getUserPermissionLevel(userId) && server.getUserPermissionLevel(userId) & LocalPermissions.CAN_EDIT_PERMISSIONS)) {
             server.allowedUsers.set(id, perm);
-            let allowedUsers2 = [];
+            const allowedUsers2 = [];
             // Don't do allowedUsers inline because there are several steps
             const done = new Set();
             // Add specific permissions
@@ -185,7 +181,7 @@ export function addListeners() {
                     name: user.username,
                     perm: user.perm,
                     access: val
-                })
+                });
                 done.add(key);
             });
             // Add all the other ones in case the aren't in there already so that all users are in the list
@@ -197,8 +193,8 @@ export function addListeners() {
                     name: val.username,
                     perm: val.perm,
                     access
-                })
-            })
+                });
+            });
             server.clobberWorld({ allowedUsers: allowedUsers2 });
             if(Server.dataFromId.get(id).socket) {
                 // The user with changed perms in logged in. Let them know it changed
@@ -208,7 +204,7 @@ export function addListeners() {
             const obj = {};
             server.allowedUsers.forEach((val, key) => {
                 obj[key] = val;
-            })
+            });
             DatabaseConnection.query({
                 text: `UPDATE servers SET allowedUsers = $1 WHERE id = $2`,
                 values: [JSON.stringify(obj), server.id]
@@ -229,10 +225,10 @@ export function addListeners() {
         if(!(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_SET_STATUS)) {
             console.warn(`Unauthorized changeStatus from ${Server.dataFromId.get(userId).username} with permissions ${server.getUserPermissionLevel(userId)}`);
             return;
-        };
+        }
 
-        if(data.status == 'Start') server.start(socket);
-        if(data.status == 'Stop') server.stop();
+        if(data.status === 'Start') server.start(socket);
+        if(data.status === 'Stop') server.stop();
     });
     Server.addListener("setOpVal", (socket, data: setOpVal) => {
         // console.log(data);
@@ -242,8 +238,8 @@ export function addListeners() {
         if(!(server.getUserPermissionLevel(user) & LocalPermissions.CAN_EDIT_PROPERTIES)) {
             console.warn(`Unauthorized setOpVal from ${Server.dataFromId.get(user).username} with permissions ${server.getUserPermissionLevel(user)}`);
             return;
-        };
-        
+        }
+
         // server.permissions = data.permissions;
         if(!(data.permissions && data.permissions.player && data.permissions.permission)) return;
         let permission = server.specPermissions.get(data.permissions.player.xuid);
@@ -251,7 +247,7 @@ export function addListeners() {
             permission = {
                 player: Player.xuidToPlayer.get(data.permissions.player.xuid),
                 permission: data.permissions.permission
-            }
+            };
             server.specPermissions.set(data.permissions.player.xuid, permission);
         } else {
             permission.permission = data.permissions.permission;
@@ -282,7 +278,7 @@ export function addListeners() {
             console.warn(`Unauthorized createWorld from ${Server.dataFromId.get(userId).username} with permissions ${perm}`);
         }
     });
-    
+
     Server.addListener("copyWorld", async (socket, data: copyWorld) => {
         const server = servers.get(data.toServer);
         const serverFrom = servers.get(data.fromServer);
@@ -374,7 +370,7 @@ export function addListeners() {
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
         if(server.type !== 'bdsx') return;
         server.addPublicPlugin(name);
-    })
+    });
     Server.addListener("updatePlugin", (socket, { serverId, plugin }: updateGit) => {
         const server = servers.get(serverId) as BDSXServer;
         if(!(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS)) return;
@@ -395,22 +391,22 @@ export function addListeners() {
         if(!(Server.dataFromId.get(id).globalPermissions & GlobalPermissions.CAN_CREATE_SERVER)){
             console.warn(`Unauthorized createServer from ${Server.dataFromId.get(id).username} with globalpermissions ${Server.dataFromId.get(id).globalPermissions}`);
             return;
-        } 
+        }
         let server;
         switch(type) {
-            case 'bdsx':
-                server = await BDSXServer.createNew(name, description, id, progressBarId);
-                servers.set(server.id, server);
-                server.clobberAll();
-                break;
-            case 'vanilla':
-                server = await VanillaServer.createNew(name, description, version, id, progressBarId);
-                servers.set(server.id, server);
-                server.clobberAll();
-                break;
-            default:
-                console.log("Unrecognized createServer type " + type + " from (verified) user " + Server.dataFromId.get(id).username + ". Ignoring.");
-                break;
+        case 'bdsx':
+            server = await BDSXServer.createNew(name, description, id, progressBarId);
+            servers.set(server.id, server);
+            server.clobberAll();
+            break;
+        case 'vanilla':
+            server = await VanillaServer.createNew(name, description, version, id, progressBarId);
+            servers.set(server.id, server);
+            server.clobberAll();
+            break;
+        default:
+            console.log("Unrecognized createServer type " + type + " from (verified) user " + Server.dataFromId.get(id).username + ". Ignoring.");
+            break;
         }
     });
     Server.addListener("deleteServer", (socket, { serverId, deleteData }: deleteServer ) => {
@@ -429,24 +425,26 @@ export function addListeners() {
         }
         if(!server.isConnectedToProcSocket) return;
         server.extraScriptingTabs
-            .find(tab => tab.name === data.tab).properties
-            .find(prop => prop.id === data.id).value = data.value;
+        .find(tab => tab.name === data.tab).properties
+        .find(prop => prop.id === data.id).value = data.value;
         server.socket.emit("changeSetting", data);
     });
+    /* eslint-disable */
     Server.addListener("refreshDB", async (socket) => {
         if(Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_REFRESH_DB) {
             // FIXME: clobber changes
             await Database.refresh();
             const packet: DBRefresh = {
                 success: true
-            }
+            };
         } else {
             const packet: DBRefresh = {
                 success: false,
                 reason: NO_PERMISSION_ERROR
-            }
+            };
         }
     });
+    /* eslint-enable */
     Server.addListener("consoleCommand", (socket, data: consoleCommand) => {
         const userId = Server.idFromSocket.get(socket);
         const user = Server.dataFromId.get(userId);
@@ -455,7 +453,7 @@ export function addListeners() {
         const server = servers.get(sId);
         if(!server) return;
         if(server.getUserPermissionLevel(userId) & LocalPermissions.CAN_USE_CONSOLE) {
-            server.sendData(data.command); 
+            server.sendData(data.command);
         } else {
             console.warn(`Unauthorized consoleCommand from ${user.username} with permissions ${server.getUserPermissionLevel(userId)}`);
             // console.log("Alert: consoleCommand from unauthorized user " + user.username + " with id " + userId);
@@ -471,7 +469,7 @@ export function addListeners() {
         const hashed = createHash('md5').update(password).digest('hex');
         let id;
         try {
-            id = await DatabaseConnection.insertQueryReturnId({ 
+            id = await DatabaseConnection.insertQueryReturnId({
                 text: "INSERT INTO users (username, password, perm, globalpermissions) VALUES ($1, $2, $3, $4)",
                 values: [username, hashed, perm, globalPermissions]
             });
@@ -495,11 +493,11 @@ export function addListeners() {
         if(!(typeof id === 'number')) return;
         if(!Server.dataFromId.has(id)) return;
         if(id === Server.idFromSocket.get(socket)) return;
-        await DatabaseConnection.query({ 
+        await DatabaseConnection.query({
             text: "DELETE FROM users WHERE id = $1",
             values: [id]
         });
-        const socketid = Array.from(Server.idFromSocket.entries()).find(([socket, id2]) => id2 === id);
+        const socketid = Array.from(Server.idFromSocket.entries()).find(([, id2]) => id2 === id);
         if(socketid) {
             socketid[0].disconnect(true);
             Server.idFromSocket.delete(socketid[0]);
@@ -507,7 +505,7 @@ export function addListeners() {
         Server.dataFromId.delete(id);
         clobberUserList();
     });
-    Server.addListener("userSetData", async (socket, { id, username, globalPermissions, perm, password }) => { 
+    Server.addListener("userSetData", async (socket, { id, username, globalPermissions, perm, password }) => {
         if(Array.from(Server.dataFromId.values()).find(u => u.username === username)) return;
         const callerData = Server.dataFromId.get(Server.idFromSocket.get(socket));
         if(callerData.id === id) return;
@@ -558,14 +556,12 @@ function clobberUserList() {
     Array.from(Server.idFromSocket.entries()).forEach(([socket, id]) => {
         if(Server.dataFromId.get(id).globalPermissions & GlobalPermissions.CAN_MANAGE_OTHER_USERS) {
             socket.emit("userlist", {
-                users: Array.from(Server.dataFromId.values()).map(({ globalPermissions, id, perm, username }) => {
-                    return {
-                        globalPermissions,
-                        id,
-                        perm,
-                        username
-                    }
-                })
+                users: Array.from(Server.dataFromId.values()).map(({ globalPermissions, id, perm, username }) => ({
+                    globalPermissions,
+                    id,
+                    perm,
+                    username
+                }))
             });
         }
     });

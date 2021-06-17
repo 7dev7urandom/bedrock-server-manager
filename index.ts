@@ -1,5 +1,5 @@
 import { config } from './Constants';
-import { BServer } from './classes/BServer'
+import { BServer } from './classes/BServer';
 import { Server } from './Server';
 import { addListeners } from './classes/Listener';
 import { createInterface } from 'readline';
@@ -31,7 +31,7 @@ function pKill() {
         console.log("Exiting");
         Server.io.emit("logout");
         process.exit();
-    }).catch(err => {
+    }).catch(() => {
         process.exit();
     });
 }

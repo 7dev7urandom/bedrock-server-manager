@@ -1,0 +1,51 @@
+{
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2017
+    },
+    "ignorePatterns": ["**/*.js"],
+    "plugins": [
+        "@typescript-eslint",
+        "import"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:import/errors",
+      "plugin:import/warnings",
+      "plugin:import/typescript"
+    ],
+    "rules": {
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "@typescript-eslint/semi": "error",
+        "@typescript-eslint/no-namespace": "warn",
+        "@typescript-eslint/no-unused-vars": "warn",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-inferrable-types": ["error", { "ignoreProperties": true, "ignoreParameters": true }],
+        "@typescript-eslint/no-non-null-assertion": "off",
+        // "@typescript-eslint/explicit-function-return-type": ["error", { "allowExpressions": true }],
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-duplicate-imports": ["error"],
+        "@typescript-eslint/no-empty-interface": "off",
+        "prefer-arrow-callback": "error",
+        // "import/no-cycle": "error",
+        "eqeqeq": ["error", "always", {"null": "ignore"}],
+        "no-throw-literal": "error",
+        "semi": "error",
+        "arrow-body-style": ["error", "as-needed"],
+        "implicit-arrow-linebreak": ["error", "beside"],
+        "no-empty": ["error", {"allowEmptyCatch": true}],
+        "no-trailing-spaces": "error",
+        "indent": ["error", 4, {"ignoreComments": true, "MemberExpression": 0 }],
+        "brace-style": ["error", "1tbs", {"allowSingleLine": true}],
+        "no-prototype-builtins": "off",
+        "prefer-rest-params": "off",
+        "no-debugger": "warn",
+        "import/export": "off",
+        "eol-last": "error",
+        "no-fallthrough": "off"
+    }
+}

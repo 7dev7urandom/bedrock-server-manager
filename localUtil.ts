@@ -9,8 +9,7 @@ import request = require("request");
 const readFileAsync = promisify(readFile);
 
 export async function propertiesFileToBProperties(filePath): Promise<BProperties> {
-    //@ts-ignore
-    return new BProperties(parse(await readFileAsync(filePath)));
+    return new BProperties(parse(await readFileAsync(filePath) as Buffer));
 }
 
 export async function permissionsFileToBPermissions(filePath): Promise<BPermission[]> {
@@ -22,16 +21,14 @@ export async function permissionsFileToBPermissions(filePath): Promise<BPermissi
     }
     let json = JSON.parse(filedata);
     if(!Array.isArray(json)) json = [];
-    return json.map(e => { 
-        return { 
-            player: Player.xuidToPlayer.get(e.xuid) ?? { xuid: e.xuid },
-            permission: e.permission 
-        }
-    });
+    return json.map(e => ({
+        player: Player.xuidToPlayer.get(e.xuid) ?? { xuid: e.xuid },
+        permission: e.permission
+    }));
 }
 
 export async function wgetToFile(url, filepath, progressCallback?) {
-    return new Promise<void>((resolve, reject)=>{
+    return new Promise<void>(resolve => {
         const file = createWriteStream(filepath);
         const req = request.get(url);
         req.pipe(file).on('error', (err) => {
@@ -41,12 +38,12 @@ export async function wgetToFile(url, filepath, progressCallback?) {
         let currentLength = 0;
         req.on('response', (data) => {
             length = data.headers['content-length'];
-        })
+        });
         req.on('data', (chunk) => {
             currentLength += chunk.length;
             if(progressCallback) progressCallback(currentLength * 100 / length);
             // console.log("Data: " + chunk.length / length);
-        })
+        });
         file.on('finish', async () => {
             await file.close();
             resolve();

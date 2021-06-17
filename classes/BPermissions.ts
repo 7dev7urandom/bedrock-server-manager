@@ -1,6 +1,8 @@
 import Player from "./Player";
 
-export default interface BPermission {
+interface BPermission {
     player: Player;
     permission: 'operator' | 'member' | 'visitor' | 'default';
 }
+
+export default BPermission;
