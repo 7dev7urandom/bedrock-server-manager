@@ -28,7 +28,7 @@ export interface UserData {
 export enum GlobalPermissions {
     CAN_CREATE_SERVER =      0b00000001,
     CAN_DELETE_SERVER =      0b00000010,
-    CAN_GRANT_PERMISSIONS =  0b00000100,
+    // CAN_GRANT_PERMISSIONS =  0b00000100,
     CAN_OVERRIDE_LOCAL =     0b00001000,
     CAN_REFRESH_DB =         0b00010000,
     CAN_MANAGE_OTHER_USERS = 0b00100000,
