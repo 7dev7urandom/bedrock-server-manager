@@ -552,7 +552,7 @@ export function addListeners() {
     // Server.addListener("")
 }
 
-function clobberUserList() {
+export function clobberUserList() {
     Array.from(Server.idFromSocket.entries()).forEach(([socket, id]) => {
         if(Server.dataFromId.get(id).globalPermissions & GlobalPermissions.CAN_MANAGE_OTHER_USERS) {
             socket.emit("userlist", {

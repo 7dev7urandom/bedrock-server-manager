@@ -6,6 +6,7 @@ import DatabaseConnection from "./DatabaseConnection";
 import Player from "./Player";
 import { BDSXServer } from './BDSXServer';
 import { VanillaServer } from './VanillaServer';
+import { clobberUserList } from "./Listener";
 
 const { servers } = BServer;
 
@@ -195,7 +196,6 @@ export default class Database {
                     });
                 } else {
                     // Check differences
-                    // Here we won't immediately update users, but they will receive the new data in time
                     if(user.username !== currentUser.username) {
                         currentUser.username = user.username;
                     }
@@ -230,6 +230,6 @@ export default class Database {
             });
         }));
         await Promise.all(proms);
-        return;
+        clobberUserList();
     }
 }

@@ -8,6 +8,7 @@ import formidable = require('formidable');
 import { BDSXServer } from './classes/BDSXServer';
 import { BServer } from './classes/BServer';
 import path = require('path');
+import Database from './classes/DatabaseImpl';
 
 
 export type userIdNum = number;
@@ -75,6 +76,13 @@ export class Server {
                 return;
             }
             switch(url) {
+            case '/refreshdb':
+                // A way for a cli to change data dynamically without full authentication
+                if(req.connection.remoteAddress === '127.0.0.1') {
+                    Database.refresh();
+                    res.end(JSON.stringify({ result: 'Refreshing' }));
+                }
+                break;
             case '/':
                 url = '/index.html';
             default:
