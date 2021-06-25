@@ -45,7 +45,7 @@ export class BProperties  {
     }
     constructor(self = {}) {
         Object.getOwnPropertyNames(self).forEach(name => {
-            if(!isNaN(Number(self[name]))) this[name] = parseInt(self[name]);
+            if(!isNaN(Number(self[name])) && self[name].trim() !== "") this[name] = parseInt(self[name]);
             else if (self[name] === 'true' || self[name] === 'false') this[name] = (self[name] === 'true');
             else this[name] = self[name];
         });
