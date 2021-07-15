@@ -414,6 +414,13 @@ export function addListeners() {
         if(!(user.globalPermissions & GlobalPermissions.CAN_DELETE_SERVER)) return;
         servers.get(serverId)?.delete(deleteData);
     });
+    Server.addListener("updateServer", (socket, { serverId }) => {
+        const user = Server.dataFromId.get(Server.idFromSocket.get(socket));
+        if(!(user.globalPermissions & GlobalPermissions.CAN_CREATE_SERVER)) return;
+        const server = servers.get(serverId);
+        if(!server || server.type !== 'bdsx') return;
+        (server as BDSXServer).update();
+    });
     // #endregion
     // #region misc
     Server.addListener("changeScriptSetting", (socket, data: changeScriptSetting) => {

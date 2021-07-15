@@ -346,7 +346,6 @@ export abstract class BServer {
             this.clobberAll();
         } else if (data.includes("] Session ID")) {
             this.sessionId = data.match(/\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d INFO\] Session ID ([-\da-f]+)/)[1] ?? this.sessionId;
-            console.log(this.sessionId);
             // console.log(JSON.stringify(this.sessionId));
         }
         // console.log(this.expectLine);
@@ -597,7 +596,7 @@ export abstract class BServer {
         this.worlds[name] = undefined;
         return success;
     }
-    clobberAll() {
+    clobberAll(modifier: (data: MinimalBServer) => any = (data) => data) {
         // data.id = this.id;
         // Server.dataFromId.forEach(userdata => {
         //     if(!(this.getUserPermissionLevel(userdata.id) & LocalPermissions.CAN_VIEW)) return;
@@ -613,7 +612,7 @@ export abstract class BServer {
 
         Server.dataFromId.forEach(async user => {
             if (this.getUserPermissionLevel(user.id) & LocalPermissions.CAN_VIEW) {
-                if(user.socket) user.socket.emit('clobberAll', { server: await this.createSmallVersion(user.id) });
+                if(user.socket) user.socket.emit('clobberAll', { server: modifier(await this.createSmallVersion(user.id)) });
             }
         });
         // Server.io.emit('clobberAll', data);

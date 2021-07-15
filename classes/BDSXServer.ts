@@ -11,9 +11,7 @@ import { ServerProcess } from './ServerProcess';
 import { serverUpdate } from '../packetDef';
 import * as socketio from 'socket.io';
 import Player from './Player';
-
-// export const BDSXVERSION = '1.16.201.02';
-// export const BDSXCOREVERSION = '1.0.1.0';
+import { Socket } from 'socket.io';
 
 export interface BDSXServerUpdate extends serverUpdate {
     scriptingTabs?: ScriptingTab[];
@@ -55,6 +53,8 @@ export class BDSXServer extends BServer {
     static wineName;
     static serverQueue: BDSXServer[] = [];
     static io: socketio.Server;
+    // status: 'Stopped' | 'Running' | 'Starting' | 'Stopping';
+    isUpdating: boolean = false;
     type: 'bdsx' = "bdsx";
     mainPath: string;
     isConnectedToProcSocket: boolean = false;
@@ -68,14 +68,24 @@ export class BDSXServer extends BServer {
         this.mainPath = serverPath;
         // Deprecated. Was for scripts, now plugins are used instead
         // (async () => {
-        //     await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
-        //     // || not ?? because empty string should be considered falsey
-        //     this.scripts = JSON.parse((await fs.readFile(path.join(this.mainPath, 'scriptInfo.json'))).toString() || 'null') ?? {
-        //         uploadedTime: false
-        //     };
-        // })();
+            //     await fs.ensureFile(path.join(this.mainPath, 'scriptInfo.json'));
+            //     // || not ?? because empty string should be considered falsey
+            //     this.scripts = JSON.parse((await fs.readFile(path.join(this.mainPath, 'scriptInfo.json'))).toString() || 'null') ?? {
+                //         uploadedTime: false
+                //     };
+                // })();
+        Server.fileListeners.set(this.id, this.addPluginAsZip);
         (async () => {
-            // TODO: check that this works in win32 and unix
+            if(this.version === 'bdsx') {
+                fs.readJSON(path.join(this.mainPath, 'bdsx', 'version-bds.json')).then(x => {
+                    this.version = x;
+                    DatabaseConnection.query({
+                        text: "UPDATE servers SET version = $1 WHERE id = $2",
+                        values: [this.version, this.id]
+                    });
+                });
+
+            }
             try {
                 const filearr = await fs.readdir(path.join(this.mainPath, 'plugins'), {
                     withFileTypes: true
@@ -187,7 +197,8 @@ export class BDSXServer extends BServer {
     sendAll(socket: SocketIO.Socket, additionalData: any = {}) {
         super.sendAll(socket, Object.assign(additionalData, Server.dataFromId.get(Server.idFromSocket.get(socket)).globalPermissions & GlobalPermissions.CAN_MANAGE_SCRIPTS ? {
             scriptingTabs: this.extraScriptingTabs,
-            plugins: this.plugins
+            plugins: this.plugins,
+            isUpdating: this.isUpdating
         } : {}));
     }
 
@@ -327,6 +338,34 @@ export class BDSXServer extends BServer {
             'win32': `(cd ${this.path} & bedrock_server.exe)`,
             'linux': `cd ${this.path} && WINEDEBUG=-all ${BDSXServer.wineName} bedrock_server.exe`
         }[process.platform];
+    }
+    async update() {
+        if(this.status !== 'Stopped') return;
+        this.isUpdating = true;
+        this.clobberAll();
+        await this.execInDirProm(`git pull`);
+        try {
+            this.version = await fs.readJSON(path.join(this.mainPath, 'bdsx', 'version-bds.json'));
+        } catch (e) {
+            // console.log(e);
+            if(e.code !== 'ENOENT') {
+                this.isUpdating = false;
+                return;
+            }
+        }
+        DatabaseConnection.query({
+            text: "UPDATE servers SET version = $1 WHERE id = $2",
+            values: [this.version, this.id]
+        });
+        await this.execInDirProm(`npm i`);
+        await this.execInDirProm(`npm run build`);
+        this.isUpdating = false;
+        this.clobberAll();
+    }
+    async createSmallVersion(userId?: number | Socket) {
+        const data = await super.createSmallVersion(userId);
+        (data as any).isUpdating = this.isUpdating;
+        return data;
     }
     async addPlugin(repo: string, name?: string): Promise<boolean> {
         let pluginPath = path.join(this.mainPath, 'plugins', name ?? '.tmp');

@@ -10,6 +10,13 @@ import { clobberUserList } from "./Listener";
 
 const { servers } = BServer;
 
+Server.pathListeners.set("/refreshdb", (req, res) => {
+    if(req.connection.remoteAddress === '127.0.0.1') {
+        Database.refresh();
+        res.end(JSON.stringify({ result: 'Refreshing' }));
+    }
+});
+
 export default class Database {
     static async verifyTables() {
         await Promise.all([
